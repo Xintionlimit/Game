@@ -1,65 +1,58 @@
 import Phaser from 'phaser';
 
-import { sceneLabels, scenePositions, type WorldScene } from '../world/sceneGraph';
+const sceneAssets = ['front', 'defense', 'farm', 'factory', 'kitchen'] as const;
+const spriteAssets = [
+  'refugee',
+  'zombie',
+  'brute',
+  'turret',
+  'carrot',
+  'chopped',
+  'stew',
+  'part',
+  'seeds',
+  'scrap',
+  'barricade',
+  'toolbox',
+] as const;
 
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('boot');
   }
 
-  create(): void {
+  preload(): void {
+    const bar = this.add.rectangle(195, 430, 250, 12, 0x3c4b3e).setOrigin(0.5);
+    const fill = this.add.rectangle(70, 430, 0, 12, 0xf0c879).setOrigin(0, 0.5);
     this.add
-      .text(195, 92, '末日小院', {
+      .text(195, 378, '末日小院', {
         color: '#f7efd2',
         fontFamily: 'sans-serif',
-        fontSize: '38px',
+        fontSize: '40px',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
-
     this.add
-      .text(195, 132, '开发环境基线 · v0.1.0', {
+      .text(195, 468, '正在整理院子……', {
         color: '#c5d5b8',
         fontFamily: 'sans-serif',
         fontSize: '16px',
       })
       .setOrigin(0.5);
 
-    this.drawWorldMap();
+    this.load.on('progress', (progress: number) => {
+      fill.width = 250 * progress;
+    });
+    this.load.on('complete', () => {
+      bar.destroy();
+      fill.destroy();
+    });
 
-    this.add
-      .text(195, 742, '十字世界已建立，玩法正在开发中', {
-        color: '#f0c879',
-        fontFamily: 'sans-serif',
-        fontSize: '17px',
-      })
-      .setOrigin(0.5);
+    for (const scene of sceneAssets) this.load.image(`scene-${scene}`, `assets/scenes/${scene}.webp`);
+    for (const sprite of spriteAssets) this.load.image(sprite, `assets/sprites/${sprite}.png`);
   }
 
-  private drawWorldMap(): void {
-    const centerX = 195;
-    const centerY = 418;
-    const step = 132;
-
-    (Object.entries(scenePositions) as [WorldScene, { x: number; y: number }][]).forEach(
-      ([scene, position]) => {
-        const x = centerX + position.x * step;
-        const y = centerY + position.y * step;
-        const isFront = scene === 'front';
-
-        this.add
-          .rectangle(x, y, 112, 86, isFront ? 0xc47b3f : 0x48694f, 1)
-          .setStrokeStyle(3, 0xf7efd2, 0.8);
-        this.add
-          .text(x, y, sceneLabels[scene], {
-            align: 'center',
-            color: '#ffffff',
-            fontFamily: 'sans-serif',
-            fontSize: '18px',
-            fontStyle: isFront ? 'bold' : 'normal',
-          })
-          .setOrigin(0.5);
-      },
-    );
+  create(): void {
+    this.scene.start('main');
   }
 }
