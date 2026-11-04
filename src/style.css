@@ -1,0 +1,29 @@
+:root {
+  color: #f7efd2;
+  background: #101712;
+  font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#game {
+  width: 100%;
+  min-width: 320px;
+  height: 100%;
+  min-height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+canvas {
+  display: block;
+  margin: 0 auto;
+}
