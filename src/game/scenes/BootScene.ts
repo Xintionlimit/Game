@@ -14,6 +14,10 @@ const spriteAssets = [
   'scrap',
   'barricade',
   'toolbox',
+  'pot',
+  'board',
+  'prep-bowl',
+  'cabinet',
 ] as const;
 
 export class BootScene extends Phaser.Scene {
@@ -22,11 +26,11 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    const bar = this.add.rectangle(195, 430, 250, 12, 0x3c4b3e).setOrigin(0.5);
-    const fill = this.add.rectangle(70, 430, 0, 12, 0xf0c879).setOrigin(0, 0.5);
+    const bar = this.add.rectangle(195, 430, 250, 8, 0xc6e2db).setOrigin(0.5);
+    const fill = this.add.rectangle(70, 430, 0, 8, 0x60baa9).setOrigin(0, 0.5);
     this.add
       .text(195, 378, '末日小院', {
-        color: '#f7efd2',
+        color: '#28586b',
         fontFamily: 'sans-serif',
         fontSize: '40px',
         fontStyle: 'bold',
@@ -34,7 +38,7 @@ export class BootScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.add
       .text(195, 468, '正在整理院子……', {
-        color: '#c5d5b8',
+        color: '#509587',
         fontFamily: 'sans-serif',
         fontSize: '16px',
       })

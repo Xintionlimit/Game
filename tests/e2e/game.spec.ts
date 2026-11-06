@@ -61,17 +61,17 @@ async function setLiveState(page: Page, mutate: (state: SavedGame) => void): Pro
 }
 
 async function completeFactoryJob(page: Page): Promise<void> {
-  await drag(page, [58, 680], [82, 515]);
-  for (let cut = 0; cut < 3; cut += 1) await drag(page, [55, 515], [120, 515], 5);
-  await drag(page, [82, 515], [306, 510]);
-  await page.mouse.move(306, 510);
+  await drag(page, [58, 680], [82, 420]);
+  for (let cut = 0; cut < 3; cut += 1) await drag(page, [55, 420], [120, 420], 5);
+  await drag(page, [82, 420], [306, 420]);
+  await page.mouse.move(306, 420);
   await page.mouse.down();
   await page.waitForTimeout(1_750);
   await page.mouse.up();
   await page.waitForTimeout(250);
-  await drag(page, [306, 510], [205, 615]);
+  await drag(page, [306, 420], [205, 550]);
   for (let bolt = 0; bolt < 3; bolt += 1) {
-    await page.mouse.click(205, 615);
+    await page.mouse.click(205, 550);
     await page.waitForTimeout(150);
   }
 }

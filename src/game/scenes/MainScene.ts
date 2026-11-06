@@ -30,7 +30,7 @@ const tutorialObjectives: Record<TutorialStep, string> = {
   'go-farm': '向左滑动，去右侧农田看看',
   harvest: '点击成熟的胡萝卜收获',
   plant: '点击空地免费播种；再次点击可浇水',
-  cook: '下滑回前台，再向上滑进厨房做菜',
+  cook: '向右划回前台，再向上划进厨房',
   serve: '把成品拖给前台等待的难民',
   'make-part': '去上方工厂：拖入废料并完成切割、焊接、装配',
   'start-beacon': '把做好的零件拖到信标上',
@@ -71,6 +71,10 @@ export class MainScene extends Phaser.Scene {
   private kitchenPlate!: Phaser.GameObjects.Image;
   private kitchenPotText!: Phaser.GameObjects.Text;
   private kitchenCabinetText!: Phaser.GameObjects.Text;
+  private kitchenFx!: Phaser.GameObjects.Graphics;
+  private potSurface!: Phaser.GameObjects.Graphics;
+  private cabinetMeals: Phaser.GameObjects.Image[] = [];
+  private focusRing!: Phaser.GameObjects.Graphics;
   private frontStew!: Phaser.GameObjects.Image;
   private patienceFill!: Phaser.GameObjects.Rectangle;
   private visitorText!: Phaser.GameObjects.Text;
@@ -116,6 +120,7 @@ export class MainScene extends Phaser.Scene {
     this.createHud();
     this.createSwipeInput();
     this.installDebugBridge();
+    this.focusRing = this.add.graphics().setDepth(80);
 
     const origin = sceneOrigins[this.currentScene];
     this.cameras.main.setScroll(origin.x, origin.y);
@@ -126,6 +131,7 @@ export class MainScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange', this.handleVisibility);
       saveGame(this.state);
     });
+    this.syncVisuals();
   }
 
   update(time: number, _deltaMs: number): void {
@@ -133,7 +139,12 @@ export class MainScene extends Phaser.Scene {
     const elapsedMs = Math.max(0, now - this.lastWallTime);
     this.lastWallTime = now;
     const deltaSeconds = elapsedMs / 1000;
+    const previousTurretCooldown = this.state.defense.turretCooldown;
     tickSimulation(this.state, deltaSeconds);
+    if (this.state.defense.turretPlaced && this.state.defense.turretCooldown > previousTurretCooldown) {
+      const target = this.state.defense.zombies.reduce<ZombieState | null>((nearest, zombie) => !nearest || zombie.x < nearest.x ? zombie : nearest, null);
+      if (target) this.shotEffect(target);
+    }
 
     if (this.weldingHeld && this.state.factory.phase === 'welding') {
       this.state.factory.progress += deltaSeconds;
@@ -177,15 +188,6 @@ export class MainScene extends Phaser.Scene {
     for (const scene of worldScenes) {
       const origin = sceneOrigins[scene];
       this.add.image(origin.x, origin.y, `scene-${scene}`).setOrigin(0).setDisplaySize(VIEW_WIDTH, VIEW_HEIGHT);
-      this.add.rectangle(origin.x + 195, origin.y + 90, 330, 42, 0x102017, 0.7).setStrokeStyle(1, 0xf0c879, 0.5);
-      this.add
-        .text(origin.x + 195, origin.y + 90, sceneLabels[scene], {
-          color: '#fff6dc',
-          fontFamily: 'sans-serif',
-          fontSize: '21px',
-          fontStyle: 'bold',
-        })
-        .setOrigin(0.5);
     }
   }
 
@@ -208,8 +210,8 @@ export class MainScene extends Phaser.Scene {
       const label = this.add
         .text(origin.x + x, origin.y + y + 38, '', {
           align: 'center',
-          backgroundColor: 'rgba(20,32,21,0.78)',
-          color: '#fff4d6',
+          backgroundColor: 'rgba(250,255,255,0.94)',
+          color: '#39776e',
           fontFamily: 'sans-serif',
           fontSize: '13px',
           padding: { x: 5, y: 3 },
@@ -232,6 +234,8 @@ export class MainScene extends Phaser.Scene {
       plot.stage = 'empty';
       plot.watered = false;
       this.state.inventory.carrots += 2;
+      const sprite = this.farmSprites[index];
+      if (sprite) this.rewardEffect(sprite.x, sprite.y - 25, '+2 胡萝卜');
       if (this.state.tutorial.step === 'harvest') this.state.tutorial.step = 'plant';
       this.showToast('收获 2 根胡萝卜');
       return;
@@ -252,6 +256,7 @@ export class MainScene extends Phaser.Scene {
 
   private createKitchenInteractions(): void {
     const origin = sceneOrigins.kitchen;
+    this.drawKitchenTools(origin);
     this.kitchenCarrot = this.add.image(origin.x + 58, origin.y + 535, 'carrot').setDisplaySize(80, 80);
     this.kitchenBoardItem = this.add
       .image(origin.x + 233, origin.y + 610, 'carrot')
@@ -263,6 +268,7 @@ export class MainScene extends Phaser.Scene {
 
     this.makeDraggable(this.kitchenCarrot, { x: origin.x + 58, y: origin.y + 535 }, (x, y) => {
       if (this.state.kitchen.board !== 'empty' || this.state.inventory.carrots <= 0) return false;
+      if (!['cook', 'serve', 'complete'].includes(this.state.tutorial.step)) return false;
       if (!this.isNear(x, y, origin.x + 233, origin.y + 610, 85)) return false;
       this.state.inventory.carrots -= 1;
       this.state.kitchen.board = 'whole';
@@ -273,6 +279,7 @@ export class MainScene extends Phaser.Scene {
     this.makeDraggable(this.kitchenChoppedItem, { x: origin.x + 233, y: origin.y + 610 }, (x, y) => {
       if (this.state.kitchen.board !== 'chopped') return false;
       if (!this.isNear(x, y, origin.x + 95, origin.y + 618, 85)) return false;
+      if (this.state.kitchen.bowlPieces > 0) return false;
       this.state.kitchen.board = 'empty';
       this.state.kitchen.bowlPieces = 1;
       return true;
@@ -316,6 +323,10 @@ export class MainScene extends Phaser.Scene {
     potZone.on('pointerdown', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
       event.stopPropagation();
       if (this.state.kitchen.pot === 'ready') {
+        if (this.state.kitchen.plateReady) {
+          this.showToast('先把盘中的料理放进成品柜');
+          return;
+        }
         this.state.kitchen.pot = 'empty';
         this.state.kitchen.plateReady = true;
         this.showToast('料理已装盘，拖进右侧成品柜');
@@ -327,6 +338,10 @@ export class MainScene extends Phaser.Scene {
 
     this.kitchenPotText = this.addHint(origin.x + 205, origin.y + 472, '锅是空的');
     this.kitchenCabinetText = this.addHint(origin.x + 335, origin.y + 398, '成品柜 0/3');
+    this.addHint(origin.x + 58, origin.y + 582, '食材架');
+    this.addHint(origin.x + 233, origin.y + 670, '砧板 · 划动切菜');
+    this.addHint(origin.x + 95, origin.y + 670, '备菜碗');
+    this.kitchenFx = this.add.graphics().setDepth(20);
   }
 
   private createFrontInteractions(): void {
@@ -345,6 +360,7 @@ export class MainScene extends Phaser.Scene {
       this.state.front.visitorId += 1;
       this.state.front.patience = this.state.front.maxPatience;
       this.state.world.houseXp += 20;
+      this.rewardEffect(origin.x + 195, origin.y + 380, '+20 家园经验');
       if (this.state.world.houseXp >= this.state.world.houseLevel * 60) {
         this.state.world.houseXp = 0;
         this.state.world.houseLevel += 1;
@@ -361,12 +377,19 @@ export class MainScene extends Phaser.Scene {
   private createFactoryInteractions(): void {
     const origin = sceneOrigins.factory;
     this.factoryScrap = this.add.image(origin.x + 58, origin.y + 680, 'scrap').setDisplaySize(88, 88);
-    this.factoryPiece = this.add.image(origin.x + 82, origin.y + 515, 'part').setDisplaySize(82, 82);
+    this.factoryPiece = this.add.image(origin.x + 82, origin.y + 420, 'part').setDisplaySize(82, 82);
     this.factoryText = this.addHint(origin.x + 195, origin.y + 745, '把废料拖到左侧切割台');
+    this.addHint(origin.x + 82, origin.y + 475, '切割台');
+    this.addHint(origin.x + 306, origin.y + 475, '焊接台');
+    this.addHint(origin.x + 205, origin.y + 601, '装配台');
 
     this.makeDraggable(this.factoryScrap, { x: origin.x + 58, y: origin.y + 680 }, (x, y) => {
+      if (!['make-part', 'make-turret', 'complete'].includes(this.state.tutorial.step)) {
+        this.showToast('先完成种菜、做饭和出餐，再制作零件');
+        return false;
+      }
       if (this.state.factory.phase !== 'idle' || this.state.inventory.scrap <= 0) return false;
-      if (!this.isNear(x, y, origin.x + 82, origin.y + 515, 95)) return false;
+      if (!this.isNear(x, y, origin.x + 82, origin.y + 420, 95)) return false;
       this.state.inventory.scrap -= 1;
       this.state.factory.phase = 'cutting';
       this.state.factory.progress = 0;
@@ -375,14 +398,14 @@ export class MainScene extends Phaser.Scene {
       return true;
     });
 
-    this.makeDraggable(this.factoryPiece, { x: origin.x + 82, y: origin.y + 515 }, (x, y) => {
-      if (this.state.factory.phase === 'cut' && this.isNear(x, y, origin.x + 306, origin.y + 510, 95)) {
+    this.makeDraggable(this.factoryPiece, { x: origin.x + 82, y: origin.y + 420 }, (x, y) => {
+      if (this.state.factory.phase === 'cut' && this.isNear(x, y, origin.x + 306, origin.y + 420, 95)) {
         this.state.factory.phase = 'welding';
         this.state.factory.progress = 0;
         this.showToast('按住焊机持续焊接');
         return true;
       }
-      if (this.state.factory.phase === 'welded' && this.isNear(x, y, origin.x + 205, origin.y + 615, 100)) {
+      if (this.state.factory.phase === 'welded' && this.isNear(x, y, origin.x + 205, origin.y + 550, 100)) {
         this.state.factory.phase = 'assembly';
         this.state.factory.progress = 0;
         this.showToast('点击零件三次拧紧装配');
@@ -465,8 +488,9 @@ export class MainScene extends Phaser.Scene {
     this.turretKit = this.add.image(origin.x + 286, origin.y + 716, 'turret').setDisplaySize(112, 112);
     this.makeDraggable(this.turretKit, { x: origin.x + 286, y: origin.y + 716 }, (x, y) => {
       if (!this.state.defense.turretBuilt || this.state.defense.turretPlaced) return false;
-      const onBase = [356, 498, 640].some((laneY) => this.isNear(x, y, origin.x + 108, origin.y + laneY, 95));
-      if (!onBase) return false;
+      const lane = [356, 498, 640].findIndex((laneY) => this.isNear(x, y, origin.x + 108, origin.y + laneY, 68));
+      if (lane < 0) return false;
+      this.state.defense.turretLane = lane;
       this.state.defense.turretPlaced = true;
       this.state.tutorial.step = 'complete';
       this.state.tutorial.completed = true;
@@ -478,23 +502,26 @@ export class MainScene extends Phaser.Scene {
   }
 
   private createHud(): void {
-    const hud = this.add.rectangle(195, 38, 390, 76, 0x101c15, 0.9).setScrollFactor(0).setDepth(1000);
-    hud.setStrokeStyle(1, 0xf0c879, 0.45);
+    const hud = this.add.graphics().setScrollFactor(0).setDepth(1000);
+    hud.fillStyle(0x295d73, 0.12).fillRoundedRect(9, 8, 374, 72, 18);
+    hud.fillStyle(0xfaffff, 0.96).fillRoundedRect(7, 4, 376, 72, 18);
+    hud.lineStyle(1.5, 0xb8dfdf, 1).strokeRoundedRect(7, 4, 376, 72, 18);
+    hud.fillStyle(0xe8f5f1, 1).fillRoundedRect(17, 43, 356, 25, 10);
     this.statusText = this.add
-      .text(14, 10, '', { color: '#fff3d1', fontFamily: 'sans-serif', fontSize: '15px' })
+      .text(19, 12, '', { color: '#28586b', fontFamily: 'sans-serif', fontSize: '13px', lineSpacing: 2 })
       .setScrollFactor(0)
       .setDepth(1001);
     this.inventoryText = this.add
-      .text(376, 10, '', { align: 'right', color: '#d6e8c9', fontFamily: 'sans-serif', fontSize: '13px' })
+      .text(370, 12, '', { align: 'right', color: '#39776e', fontFamily: 'sans-serif', fontSize: '12px', lineSpacing: 2 })
       .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(1001);
     this.objectiveText = this.add
       .text(195, 51, '', {
         align: 'center',
-        color: '#f2ce72',
+        color: '#346c63',
         fontFamily: 'sans-serif',
-        fontSize: '14px',
+        fontSize: '12px',
         wordWrap: { width: 360 },
       })
       .setOrigin(0.5)
@@ -502,8 +529,8 @@ export class MainScene extends Phaser.Scene {
       .setDepth(1001);
     this.sceneText = this.add
       .text(195, 92, '', {
-        backgroundColor: 'rgba(12,24,16,0.76)',
-        color: '#ffffff',
+        backgroundColor: 'rgba(250,255,255,0.94)',
+        color: '#28586b',
         fontFamily: 'sans-serif',
         fontSize: '14px',
         padding: { x: 10, y: 5 },
@@ -514,8 +541,8 @@ export class MainScene extends Phaser.Scene {
     this.edgeHintText = this.add
       .text(195, 782, '', {
         align: 'center',
-        backgroundColor: 'rgba(12,24,16,0.76)',
-        color: '#fff3d1',
+        backgroundColor: 'rgba(250,255,255,0.94)',
+        color: '#39776e',
         fontFamily: 'sans-serif',
         fontSize: '13px',
         padding: { x: 9, y: 5 },
@@ -524,7 +551,7 @@ export class MainScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(1001);
 
-    const dangerBg = this.add.rectangle(195, 828, 360, 12, 0x26382b, 0.95).setScrollFactor(0).setDepth(1000);
+    const dangerBg = this.add.rectangle(195, 828, 360, 12, 0xd4eae5, 0.95).setScrollFactor(0).setDepth(1000);
     dangerBg.setInteractive({ useHandCursor: true });
     dangerBg.on('pointerdown', () => this.moveToScene('defense'));
     this.dangerFill = this.add.rectangle(15, 828, 0, 12, 0xd65a42, 1).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1001);
@@ -534,8 +561,8 @@ export class MainScene extends Phaser.Scene {
     this.toastText = this.add
       .text(195, 700, '', {
         align: 'center',
-        backgroundColor: 'rgba(16,28,21,0.93)',
-        color: '#fff4d6',
+        backgroundColor: 'rgba(250,255,255,0.97)',
+        color: '#28586b',
         fontFamily: 'sans-serif',
         fontSize: '15px',
         padding: { x: 14, y: 9 },
@@ -565,6 +592,8 @@ export class MainScene extends Phaser.Scene {
         if (this.cuttingDistance >= 34) {
           this.cuttingDistance = 0;
           this.state.kitchen.cuts += 1;
+          const origin = sceneOrigins.kitchen;
+          this.rewardEffect(origin.x + 233, origin.y + 600, '切配 ' + Math.min(this.state.kitchen.cuts, 3) + '/3');
           if (this.state.kitchen.cuts >= 3) {
             this.state.kitchen.board = 'chopped';
             this.cutting = false;
@@ -705,6 +734,24 @@ export class MainScene extends Phaser.Scene {
           : '锅是空的';
     this.kitchenPotText.setText(potLabel);
     this.kitchenCabinetText.setText(`成品柜 ${this.state.inventory.stew}/${this.state.kitchen.cabinetCapacity}`);
+    this.cabinetMeals.forEach((meal, index) => meal.setVisible(index < this.state.inventory.stew));
+    this.potSurface.clear();
+    if (this.state.kitchen.pot === 'empty') {
+      this.potSurface.fillStyle(0xd7eaf1, 1).fillEllipse(origin.x + 205, origin.y + 382, 74, 27);
+    } else if (this.state.kitchen.pot === 'burnt') {
+      this.potSurface.fillStyle(0x695554, 0.96).fillEllipse(origin.x + 205, origin.y + 382, 74, 27);
+    }
+    this.kitchenFx.clear();
+    if (this.state.kitchen.pot === 'cooking' || this.state.kitchen.pot === 'ready') {
+      for (let i = 0; i < 4; i += 1) {
+        const phase = (this.time.now / 1800 + i / 4) % 1;
+        this.kitchenFx.fillStyle(0xffffff, (1 - phase) * 0.75);
+        this.kitchenFx.fillCircle(origin.x + 180 + i * 15 + Math.sin(phase * 5) * 5, origin.y + 375 - phase * 55, 4 + phase * 8);
+      }
+      const progress = Phaser.Math.Clamp((this.state.runtime.totalSeconds - this.state.kitchen.cookStartedAt) / 10, 0, 1);
+      this.kitchenFx.fillStyle(0xe0edea).fillRoundedRect(origin.x + 162, origin.y + 447, 86, 5, 2);
+      this.kitchenFx.fillStyle(this.state.kitchen.pot === 'ready' ? 0xeda885 : 0x5cbda9).fillRoundedRect(origin.x + 162, origin.y + 447, 86 * progress, 5, 2);
+    }
   }
 
   private syncFront(): void {
@@ -725,9 +772,9 @@ export class MainScene extends Phaser.Scene {
     const pieceVisible = ['cutting', 'cut', 'welding', 'welded', 'assembly'].includes(this.state.factory.phase);
     this.factoryPiece.setVisible(pieceVisible);
     if (!this.dragging.has(this.factoryPiece)) {
-      if (this.state.factory.phase === 'cutting' || this.state.factory.phase === 'cut') this.factoryPiece.setPosition(origin.x + 82, origin.y + 515);
-      else if (this.state.factory.phase === 'welding' || this.state.factory.phase === 'welded') this.factoryPiece.setPosition(origin.x + 306, origin.y + 510);
-      else this.factoryPiece.setPosition(origin.x + 205, origin.y + 615);
+      if (this.state.factory.phase === 'cutting' || this.state.factory.phase === 'cut') this.factoryPiece.setPosition(origin.x + 82, origin.y + 420);
+      else if (this.state.factory.phase === 'welding' || this.state.factory.phase === 'welded') this.factoryPiece.setPosition(origin.x + 306, origin.y + 420);
+      else this.factoryPiece.setPosition(origin.x + 205, origin.y + 550);
     }
     this.input.setDraggable(this.factoryPiece, this.state.factory.phase === 'cut' || this.state.factory.phase === 'welded');
 
@@ -784,6 +831,7 @@ export class MainScene extends Phaser.Scene {
           if (!target) return;
           if (target.kind === 'hold-tutorial') this.firingZombieId = target.id;
           else target.hp -= 1;
+          this.shotEffect(target);
           this.cameras.main.shake(45, 0.002);
         });
         const bar = this.add.rectangle(0, 0, 58, 6, 0x65c76b).setOrigin(0, 0.5);
@@ -803,6 +851,7 @@ export class MainScene extends Phaser.Scene {
     this.turretKit.setVisible(this.state.defense.turretBuilt && !this.state.defense.turretPlaced);
     if (!this.dragging.has(this.turretKit)) this.turretKit.setPosition(origin.x + 286, origin.y + 716);
     this.placedTurret.setVisible(this.state.defense.turretPlaced);
+    this.placedTurret.setPosition(origin.x + 108, origin.y + 356 + (this.state.defense.turretLane ?? 1) * 142);
   }
 
   private syncHud(): void {
@@ -812,7 +861,8 @@ export class MainScene extends Phaser.Scene {
     const period = hour >= 19 || hour < 6 ? '夜晚' : '白天';
     this.statusText.setText(`家园 Lv.${this.state.world.houseLevel}  第 ${this.state.runtime.day} 天 ${period}\n房屋 ${Math.ceil(this.state.world.houseHp)}/${this.state.world.houseMaxHp}`);
     this.inventoryText.setText(`胡萝卜 ${this.state.inventory.carrots}  热汤 ${this.state.inventory.stew}\n废料 ${this.state.inventory.scrap}  ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
-    this.objectiveText.setText(tutorialObjectives[this.state.tutorial.step]);
+    this.objectiveText.setText(this.currentScene === 'kitchen' && this.state.tutorial.step === 'cook'
+      ? this.kitchenInstruction() : tutorialObjectives[this.state.tutorial.step]);
     this.sceneText.setText(sceneLabels[this.currentScene]);
     this.edgeHintText.setText(this.getEdgeHint());
 
@@ -821,13 +871,15 @@ export class MainScene extends Phaser.Scene {
     this.dangerFill.width = 360 * danger;
     this.dangerFill.fillColor = danger > 0.7 ? 0xd64235 : danger > 0.35 ? 0xe3a044 : 0x66ae62;
     const night = hour >= 19 || hour < 6;
-    this.nightOverlay.setAlpha(night ? (this.state.runtime.bloodMoon ? 0.38 : 0.24) : 0);
-    this.nightOverlay.fillColor = this.state.runtime.bloodMoon ? 0x8b2026 : 0x17254c;
+    this.nightOverlay.setAlpha(night ? (this.state.runtime.bloodMoon ? 0.24 : 0.13) : 0);
+    this.nightOverlay.fillColor = this.state.runtime.bloodMoon ? 0xcf7997 : 0x8c9fcf;
+    this.drawFocusRing();
   }
 
   private getEdgeHint(): string {
-    if (this.currentScene === 'front') return '↑ 工厂信标　← 防线　农田 →　↓ 厨房（滑动移动）';
-    return '滑回中央前台才能前往其他区域';
+    if (this.currentScene === 'front') return '左划去农田 · 右划去防线\n上划进厨房 · 下划去工厂';
+    return { farm: '向右划回中央前台', defense: '向左划回中央前台',
+      kitchen: '向下划回中央前台', factory: '向上划回中央前台' }[this.currentScene];
   }
 
   private handleDefeatedZombies(defeated: ZombieState[]): void {
@@ -863,20 +915,101 @@ export class MainScene extends Phaser.Scene {
   }
 
   private addHint(x: number, y: number, text: string): Phaser.GameObjects.Text {
-    return this.add
+    const label = this.add
       .text(x, y, text, {
         align: 'center',
-        backgroundColor: 'rgba(18,29,20,0.82)',
-        color: '#fff4d6',
+        color: '#39776e',
         fontFamily: 'sans-serif',
         fontSize: '13px',
         padding: { x: 7, y: 4 },
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5).setDepth(6);
+    const panel = this.add.graphics().setDepth(5);
+    panel.fillStyle(0x39776e, 0.12).fillRoundedRect(x - label.width / 2, y - label.height / 2 + 2, label.width, label.height, 8);
+    panel.fillStyle(0xfaffff, 0.96).fillRoundedRect(x - label.width / 2, y - label.height / 2, label.width, label.height, 8);
+    return label;
   }
 
   private isNear(x: number, y: number, targetX: number, targetY: number, radius: number): boolean {
     return Phaser.Math.Distance.Between(x, y, targetX, targetY) <= radius;
+  }
+
+  private kitchenInstruction(): string {
+    const kitchen = this.state.kitchen;
+    if (kitchen.plateReady) return '把装好的热汤拖入右上方成品柜';
+    if (kitchen.pot === 'ready') return '热汤煮好啦，点锅装盘';
+    if (kitchen.pot === 'burnt') return '料理糊了，点击锅清理后重新制作';
+    if (kitchen.pot === 'cooking') return '热汤正在煮，等进度满后点锅装盘';
+    if (kitchen.bowlPieces > 0) return '把备菜碗里的碎菜拖到蓝色汤锅';
+    if (kitchen.board === 'chopped') return '把切好的菜拖进左侧备菜碗';
+    if (kitchen.board === 'whole') return '在砧板上的胡萝卜来回划动切菜';
+    return '把左侧胡萝卜拖到右下方砧板';
+  }
+
+  private rewardEffect(x: number, y: number, message: string): void {
+    const label = this.add.text(x, y, message, {
+      fontFamily: 'sans-serif', fontSize: '17px', fontStyle: 'bold',
+      color: '#288b79', stroke: '#ffffff', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(85);
+    this.tweens.add({ targets: label, y: y - 45, alpha: 0, duration: 1000, ease: 'Cubic.Out', onComplete: () => label.destroy() });
+  }
+
+  private shotEffect(target: ZombieState): void {
+    const origin = sceneOrigins.defense;
+    const beam = this.add.graphics().setDepth(70);
+    beam.lineStyle(3, 0x9eefff, 0.9);
+    beam.lineBetween(origin.x + 123, origin.y + 345 + (this.state.defense.turretLane ?? 1) * 142,
+      origin.x + target.x, origin.y + 345 + target.lane * 142);
+    beam.fillStyle(0xffffff).fillCircle(origin.x + target.x, origin.y + 345 + target.lane * 142, 7);
+    this.tweens.add({ targets: beam, alpha: 0, duration: 150, onComplete: () => beam.destroy() });
+  }
+
+  private drawKitchenTools(origin: { x: number; y: number }): void {
+    const g = this.add.graphics();
+    const { x, y } = origin;
+    g.fillStyle(0x37677b, 0.15).fillEllipse(x + 205, y + 431, 119, 21);
+    g.fillStyle(0x427b83, 0.15).fillEllipse(x + 95, y + 644, 99, 20);
+    g.fillStyle(0xfaffff).fillEllipse(x + 300, y + 541, 88, 26);
+    g.lineStyle(3, 0x9ac9df).strokeEllipse(x + 300, y + 541, 75, 18);
+    this.add.image(x + 205, y + 403, 'pot').setDisplaySize(132, 115);
+    this.add.image(x + 233, y + 612, 'board').setDisplaySize(138, 115);
+    this.add.image(x + 95, y + 624, 'prep-bowl').setDisplaySize(106, 88);
+    this.add.image(x + 342, y + 322, 'cabinet').setDisplaySize(82, 151);
+    for (let index = 0; index < 3; index += 1) {
+      this.cabinetMeals.push(this.add.image(x + 342, y + 290 + index * 31, 'stew').setDisplaySize(31, 29));
+    }
+    this.potSurface = this.add.graphics();
+  }
+
+  private drawFocusRing(): void {
+    const origin = sceneOrigins[this.currentScene];
+    let target: { x: number; y: number; radius: number } | null = null;
+    const step = this.state.tutorial.step;
+    if (this.currentScene === 'farm' && ['harvest', 'plant'].includes(step)) target = { x: 98, y: 382, radius: 43 };
+    if (this.currentScene === 'kitchen' && step === 'cook') {
+      const k = this.state.kitchen;
+      target = k.plateReady ? { x: 300, y: 534, radius: 47 }
+        : k.pot !== 'empty' ? { x: 205, y: 405, radius: 53 }
+          : k.bowlPieces ? { x: 95, y: 618, radius: 45 }
+            : k.board !== 'empty' ? { x: 233, y: 610, radius: 51 }
+              : { x: 58, y: 535, radius: 40 };
+    }
+    if (this.currentScene === 'front' && step === 'serve') target = { x: 96, y: 675, radius: 51 };
+    if (this.currentScene === 'factory' && ['make-part', 'make-turret'].includes(step)) {
+      const phase = this.state.factory.phase;
+      target = phase === 'idle' ? { x: 58, y: 680, radius: 47 }
+        : phase === 'welding' || phase === 'welded' ? { x: 306, y: 420, radius: 47 }
+          : phase === 'assembly' ? { x: 205, y: 550, radius: 47 } : { x: 82, y: 420, radius: 47 };
+    }
+    if (this.currentScene === 'factory' && ['start-beacon', 'repair-beacon'].includes(step)) target = { x: 235, y: 280, radius: 47 };
+    this.focusRing.clear();
+    if (target) {
+      const pulse = (Math.sin(this.time.now / 230) + 1) / 2;
+      this.focusRing.lineStyle(3, 0x5bc9bb, 0.45 + pulse * 0.4);
+      this.focusRing.strokeCircle(origin.x + target.x, origin.y + target.y, target.radius + pulse * 4);
+      this.focusRing.lineStyle(2, 0xffffff, 0.9);
+      this.focusRing.strokeCircle(origin.x + target.x, origin.y + target.y, target.radius - 4);
+    }
   }
 
   private showToast(message: string): void {

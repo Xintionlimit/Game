@@ -98,6 +98,7 @@ export interface GameState {
     turretBlueprint: boolean;
     turretBuilt: boolean;
     turretPlaced: boolean;
+    turretLane?: number;
     turretCooldown: number;
     spawnCooldown: number;
     kills: number;

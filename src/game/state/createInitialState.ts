@@ -15,7 +15,7 @@ export function createInitialState(): GameState {
     runtime: {
       totalSeconds: 0,
       day: 1,
-      timeInDay: 40,
+      timeInDay: 80,
       dayLength: 240,
       paused: false,
       bloodMoon: false,

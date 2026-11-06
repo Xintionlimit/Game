@@ -27,11 +27,12 @@ export function tickSimulation(state: GameState, deltaSeconds: number): void {
 
   state.runtime.totalSeconds += delta;
   state.runtime.timeInDay += delta;
-  if (state.runtime.timeInDay >= state.runtime.dayLength) {
+  while (state.runtime.timeInDay >= state.runtime.dayLength) {
     state.runtime.timeInDay -= state.runtime.dayLength;
     state.runtime.day += 1;
-    state.runtime.bloodMoon = state.runtime.day % 7 === 0;
   }
+  const hour = state.runtime.timeInDay / state.runtime.dayLength * 24;
+  state.runtime.bloodMoon = state.runtime.day % 7 === 0 && (hour >= 19 || hour < 6);
 
   for (const plot of state.farm.plots) {
     if (plot.stage !== 'growing') continue;
@@ -39,7 +40,7 @@ export function tickSimulation(state: GameState, deltaSeconds: number): void {
     if (state.runtime.totalSeconds - plot.plantedAt >= effectiveGrowSeconds) plot.stage = 'ready';
   }
 
-  if (state.kitchen.pot === 'cooking') {
+  if (state.kitchen.pot === 'cooking' || state.kitchen.pot === 'ready') {
     const elapsed = state.runtime.totalSeconds - state.kitchen.cookStartedAt;
     if (elapsed >= BURN_SECONDS) state.kitchen.pot = 'burnt';
     else if (elapsed >= COOK_SECONDS) state.kitchen.pot = 'ready';
@@ -56,18 +57,19 @@ export function tickSimulation(state: GameState, deltaSeconds: number): void {
 
   const tutorialActive = state.tutorial.step === 'tap-zombie' || state.tutorial.step === 'hold-zombie';
   if (!tutorialActive && state.beacon.initialSignal) {
+    const beaconThreat = state.beacon.nextThreatDay !== null && state.runtime.day >= state.beacon.nextThreatDay
+      ? state.world.beaconStage * 0.15 : 0;
     state.defense.spawnCooldown -= delta * (state.runtime.bloodMoon ? 2 : 1);
     if (state.defense.spawnCooldown <= 0) {
       const kind = state.runtime.bloodMoon && state.defense.kills % 4 === 0 ? 'brute' : 'walker';
       state.defense.zombies.push(createZombie(state, kind, Math.floor(Math.random() * 3)));
-      state.defense.spawnCooldown = state.runtime.bloodMoon ? 7 : 14;
+      state.defense.spawnCooldown = (state.runtime.bloodMoon ? 7 : 14) / (1 + beaconThreat);
     }
   }
 
   for (const zombie of state.defense.zombies) {
-    zombie.x -= zombie.speed * delta;
+    zombie.x = Math.max(32, zombie.x - zombie.speed * delta);
     if (zombie.x <= 32) {
-      zombie.x = 42;
       state.world.houseHp = Math.max(0, state.world.houseHp - delta * (zombie.kind === 'brute' ? 7 : 3));
     }
   }

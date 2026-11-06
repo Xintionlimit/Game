@@ -35,16 +35,42 @@ describe('统一时间与并行系统', () => {
     state.runtime.paused = true;
     tickSimulation(state, 30);
     expect(state.runtime.totalSeconds).toBe(0);
-    expect(state.runtime.timeInDay).toBe(40);
+    expect(state.runtime.timeInDay).toBe(80);
   });
 
-  it('第七天进入血月且不重置持续世界', () => {
+  it('第七天白天不触发血月，夜晚才触发且保留残敌', () => {
     const state = createInitialState();
     state.runtime.day = 6;
     state.runtime.timeInDay = state.runtime.dayLength - 0.05;
     tickSimulation(state, 0.1);
     expect(state.runtime.day).toBe(7);
     expect(state.runtime.bloodMoon).toBe(true);
+    state.runtime.timeInDay = 80;
+    tickSimulation(state, 0.1);
+    expect(state.runtime.bloodMoon).toBe(false);
+    state.runtime.timeInDay = 200;
+    tickSimulation(state, 0.1);
+    expect(state.runtime.bloodMoon).toBe(true);
+  });
+
+  it('熟食在跨场景放置超过22秒后会糊锅', () => {
+    const state = createInitialState();
+    state.kitchen.pot = 'cooking';
+    state.kitchen.cookStartedAt = 0;
+    for (let i = 0; i < 11; i += 1) tickSimulation(state, 1);
+    expect(state.kitchen.pot).toBe('ready');
+    state.world.scene = 'farm';
+    for (let i = 0; i < 12; i += 1) tickSimulation(state, 1);
+    expect(state.kitchen.pot).toBe('burnt');
+  });
+
+  it('抵达房屋的僵尸持续攻击而不是被弹回道路', () => {
+    const state = createInitialState();
+    spawnTutorialZombie(state, 'tap-tutorial');
+    state.defense.zombies[0]!.x = 32;
+    for (let i = 0; i < 60; i += 1) tickSimulation(state, 1 / 60);
+    expect(state.world.houseHp).toBeCloseTo(97);
+    expect(state.defense.zombies[0]!.x).toBe(32);
   });
 });
 
