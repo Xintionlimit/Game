@@ -1,0 +1,38 @@
+[
+  {
+    "name": "midnight",
+    "day": 8,
+    "bloodMoon": true,
+    "passed": true
+  },
+  {
+    "name": "dawn",
+    "day": 8,
+    "bloodMoon": false,
+    "passed": true
+  },
+  {
+    "name": "before-seventh-night",
+    "day": 7,
+    "bloodMoon": false,
+    "passed": true
+  },
+  {
+    "name": "infected-body",
+    "day": 2,
+    "bloodMoon": false,
+    "passed": true
+  },
+  {
+    "name": "automation-kitchen",
+    "day": 2,
+    "bloodMoon": false,
+    "passed": true
+  },
+  {
+    "name": "automation-farm",
+    "day": 2,
+    "bloodMoon": false,
+    "passed": true
+  }
+]

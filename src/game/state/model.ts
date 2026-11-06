@@ -1,6 +1,8 @@
 import type { WorldScene } from '../world/sceneGraph';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
+export type Product = 'part' | 'turret' | 'tools' | 'cutter' | 'watering';
+export interface TowerState { lane: number; hp: number; maxHp: number; level: number; cooldown: number; repairAt: number | null }
 
 export type CropStage = 'empty' | 'growing' | 'ready';
 export type PotState = 'empty' | 'cooking' | 'ready' | 'burnt';
@@ -33,7 +35,7 @@ export interface ZombieState {
   x: number;
   hp: number;
   maxHp: number;
-  kind: 'tap-tutorial' | 'hold-tutorial' | 'walker' | 'brute';
+  kind: 'tap-tutorial' | 'hold-tutorial' | 'walker' | 'brute' | 'refugee';
   speed: number;
 }
 
@@ -82,11 +84,17 @@ export interface GameState {
     maxPatience: number;
     served: number;
     failed: number;
+    active: boolean;
+    dayServed: number;
+    quotaDay: number;
+    nextAt: number;
   };
   factory: {
     phase: FactoryPhase;
     progress: number;
     turretJob: boolean;
+    selected: Product;
+    product: Product;
   };
   beacon: {
     initialSignal: boolean;
@@ -102,7 +110,15 @@ export interface GameState {
     turretCooldown: number;
     spawnCooldown: number;
     kills: number;
+    kits: number;
+    towers: TowerState[];
+    barricades: number[];
+    houseRepairAt: number | null;
+    ammo: number;
+    reloadAt: number | null;
+    nextShotAt: number;
   };
+  progression: { watering: boolean; cutter: boolean; rescued: boolean; rescueAt: number | null };
   tutorial: {
     step: TutorialStep;
     completed: boolean;

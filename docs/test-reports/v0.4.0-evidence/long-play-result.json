@@ -1,0 +1,367 @@
+{
+  "passed": true,
+  "wallSeconds": 1332.503,
+  "metrics": {
+    "mealsCooked": 31,
+    "crafts": 15,
+    "repairs": 0,
+    "pausesChecked": 1,
+    "reloadsChecked": 1,
+    "touchActions": 670,
+    "bloodMoonSeen": true
+  },
+  "errors": [],
+  "finalState": {
+    "saveVersion": 2,
+    "runtime": {
+      "totalSeconds": 1328.0867000000517,
+      "day": 8,
+      "timeInDay": 128.0867000000015,
+      "dayLength": 180,
+      "paused": false,
+      "bloodMoon": false
+    },
+    "world": {
+      "scene": "kitchen",
+      "houseLevel": 5,
+      "houseXp": 10,
+      "houseHp": 180,
+      "houseMaxHp": 180,
+      "beaconStage": 3,
+      "threatFromDay": 2
+    },
+    "inventory": {
+      "carrots": 151,
+      "stew": 2,
+      "scrap": 114,
+      "parts": 0,
+      "repairTools": 3
+    },
+    "farm": {
+      "plots": [
+        {
+          "stage": "ready",
+          "plantedAt": 1229.1719000000523,
+          "growSeconds": 35,
+          "watered": true
+        },
+        {
+          "stage": "ready",
+          "plantedAt": 1229.944000000052,
+          "growSeconds": 35,
+          "watered": true
+        },
+        {
+          "stage": "ready",
+          "plantedAt": 1230.668400000052,
+          "growSeconds": 35,
+          "watered": true
+        },
+        {
+          "stage": "ready",
+          "plantedAt": 1231.5528000000513,
+          "growSeconds": 35,
+          "watered": true
+        },
+        {
+          "stage": "ready",
+          "plantedAt": 1232.294300000051,
+          "growSeconds": 35,
+          "watered": true
+        },
+        {
+          "stage": "ready",
+          "plantedAt": 1233.0222000000513,
+          "growSeconds": 35,
+          "watered": true
+        },
+        {
+          "stage": "ready",
+          "plantedAt": 1233.6946000000503,
+          "growSeconds": 35,
+          "watered": true
+        },
+        {
+          "stage": "ready",
+          "plantedAt": 1234.2835000000512,
+          "growSeconds": 35,
+          "watered": true
+        },
+        {
+          "stage": "ready",
+          "plantedAt": 1235.1212000000512,
+          "growSeconds": 35,
+          "watered": true
+        }
+      ],
+      "automationLevel": 0
+    },
+    "kitchen": {
+      "board": "empty",
+      "cuts": 3.038599999999628,
+      "bowlPieces": 0,
+      "pot": "empty",
+      "cookStartedAt": 1315.1154000000508,
+      "plateReady": false,
+      "cabinetCapacity": 3
+    },
+    "front": {
+      "visitorId": 35,
+      "patience": 40.13970000000026,
+      "maxPatience": 60,
+      "served": 29,
+      "failed": 5,
+      "active": true,
+      "dayServed": 3,
+      "quotaDay": 8,
+      "nextAt": 1308.1821000000507
+    },
+    "factory": {
+      "phase": "idle",
+      "progress": 0,
+      "turretJob": false,
+      "selected": "tools",
+      "product": "tools"
+    },
+    "beacon": {
+      "initialSignal": true,
+      "nextThreatDay": 5
+    },
+    "defense": {
+      "zombies": [],
+      "nextZombieId": 141,
+      "turretBlueprint": true,
+      "turretBuilt": true,
+      "turretPlaced": true,
+      "turretCooldown": 0,
+      "spawnCooldown": 7.356127586206713,
+      "kills": 140,
+      "kits": 0,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80,
+          "maxHp": 80,
+          "level": 1,
+          "cooldown": -1.0219999999999998,
+          "repairAt": null
+        },
+        {
+          "lane": 0,
+          "hp": 80,
+          "maxHp": 80,
+          "level": 1,
+          "cooldown": -11.381799999999812,
+          "repairAt": null
+        },
+        {
+          "lane": 2,
+          "hp": 80,
+          "maxHp": 80,
+          "level": 1,
+          "cooldown": -21.78210000000056,
+          "repairAt": null
+        }
+      ],
+      "barricades": [
+        60,
+        60,
+        60
+      ],
+      "houseRepairAt": null,
+      "ammo": 2,
+      "reloadAt": null,
+      "nextShotAt": 1245.215900000051,
+      "turretLane": 2
+    },
+    "progression": {
+      "watering": true,
+      "cutter": true,
+      "rescued": true,
+      "rescueAt": 583.0997000000023
+    },
+    "tutorial": {
+      "step": "complete",
+      "completed": true
+    },
+    "checkpoint": {
+      "state": {
+        "saveVersion": 2,
+        "runtime": {
+          "totalSeconds": 493.0997000000023,
+          "day": 4,
+          "timeInDay": 13.099700000001704,
+          "dayLength": 180,
+          "paused": false,
+          "bloodMoon": false
+        },
+        "world": {
+          "scene": "factory",
+          "houseLevel": 2,
+          "houseXp": 115,
+          "houseHp": 120,
+          "houseMaxHp": 120,
+          "beaconStage": 3,
+          "threatFromDay": 2
+        },
+        "inventory": {
+          "carrots": 10,
+          "stew": 2,
+          "scrap": 17,
+          "parts": 0,
+          "repairTools": 0
+        },
+        "farm": {
+          "plots": [
+            {
+              "stage": "ready",
+              "plantedAt": 158.0149000000003,
+              "growSeconds": 35,
+              "watered": false
+            },
+            {
+              "stage": "ready",
+              "plantedAt": 158.6192000000002,
+              "growSeconds": 35,
+              "watered": false
+            },
+            {
+              "stage": "ready",
+              "plantedAt": 159.22379999999984,
+              "growSeconds": 35,
+              "watered": false
+            },
+            {
+              "stage": "ready",
+              "plantedAt": 159.8551000000006,
+              "growSeconds": 35,
+              "watered": false
+            },
+            {
+              "stage": "ready",
+              "plantedAt": 160.42590000000038,
+              "growSeconds": 35,
+              "watered": false
+            },
+            {
+              "stage": "ready",
+              "plantedAt": 161.09170000000015,
+              "growSeconds": 35,
+              "watered": false
+            },
+            {
+              "stage": "ready",
+              "plantedAt": 161.69979999999978,
+              "growSeconds": 35,
+              "watered": false
+            },
+            {
+              "stage": "ready",
+              "plantedAt": 162.30410000000052,
+              "growSeconds": 35,
+              "watered": false
+            },
+            {
+              "stage": "ready",
+              "plantedAt": 162.90160000000054,
+              "growSeconds": 35,
+              "watered": false
+            }
+          ],
+          "automationLevel": 0
+        },
+        "kitchen": {
+          "board": "empty",
+          "cuts": 3.0054000000003738,
+          "bowlPieces": 0,
+          "pot": "empty",
+          "cookStartedAt": 419.929400000002,
+          "plateReady": false,
+          "cabinetCapacity": 3
+        },
+        "front": {
+          "visitorId": 10,
+          "patience": 60,
+          "maxPatience": 60,
+          "served": 8,
+          "failed": 2,
+          "active": false,
+          "dayServed": 0,
+          "quotaDay": 4,
+          "nextAt": 483.01810000000245
+        },
+        "factory": {
+          "phase": "idle",
+          "progress": 0,
+          "turretJob": false,
+          "selected": "part",
+          "product": "part"
+        },
+        "beacon": {
+          "initialSignal": true,
+          "nextThreatDay": 5
+        },
+        "defense": {
+          "zombies": [],
+          "nextZombieId": 40,
+          "turretBlueprint": true,
+          "turretBuilt": true,
+          "turretPlaced": true,
+          "turretCooldown": 0,
+          "spawnCooldown": 6.760269230769232,
+          "kills": 39,
+          "kits": 0,
+          "towers": [
+            {
+              "lane": 1,
+              "hp": 80,
+              "maxHp": 80,
+              "level": 1,
+              "cooldown": -12.506699999999254,
+              "repairAt": null
+            },
+            {
+              "lane": 0,
+              "hp": 80,
+              "maxHp": 80,
+              "level": 1,
+              "cooldown": -24.538399999999406,
+              "repairAt": null
+            },
+            {
+              "lane": 2,
+              "hp": 80,
+              "maxHp": 80,
+              "level": 1,
+              "cooldown": -0.4885999999996276,
+              "repairAt": null
+            }
+          ],
+          "barricades": [
+            60,
+            60,
+            60
+          ],
+          "houseRepairAt": null,
+          "ammo": 2,
+          "reloadAt": null,
+          "nextShotAt": 123.0289000000005,
+          "turretLane": 2
+        },
+        "progression": {
+          "watering": true,
+          "cutter": true,
+          "rescued": false,
+          "rescueAt": 583.0997000000023
+        },
+        "tutorial": {
+          "step": "complete",
+          "completed": true
+        },
+        "checkpoint": {
+          "state": null
+        }
+      }
+    }
+  }
+}

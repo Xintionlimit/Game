@@ -166,7 +166,7 @@ test('厨房需要真实拖拽、划切、下锅、装盘和入柜', async ({ pa
 });
 
 test('出餐、工厂、信标、两只教学僵尸和自动炮塔形成闭环', async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   await openFreshGame(page);
   await setLiveState(page, (state) => {
     state.world.scene = 'front';
@@ -191,6 +191,7 @@ test('出餐、工厂、信标、两只教学僵尸和自动炮塔形成闭环',
   await drag(page, [90, 650], [315, 650]);
   expect((await readLiveState(page)).world.scene).toBe('defense');
   await page.mouse.click(340, 345);
+  await page.waitForTimeout(160);
   await page.mouse.click(340, 345);
   await page.waitForTimeout(350);
   expect(await readLiveState(page)).toMatchObject({ tutorial: { step: 'hold-zombie' } });

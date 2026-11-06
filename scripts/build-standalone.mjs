@@ -22,6 +22,7 @@ const output = await build({
       if (!id.endsWith('/BootScene.ts')) return;
       return `const offlineAssets = ${JSON.stringify(embedded)};\n${code}`
         .replace('`assets/scenes/${scene}.webp`', 'offlineAssets[`assets/scenes/${scene}.webp`]')
+        .replace('`assets/scenes/${scene}-night.webp`', 'offlineAssets[`assets/scenes/${scene}-night.webp`]')
         .replace('`assets/sprites/${sprite}.png`', 'offlineAssets[`assets/sprites/${sprite}.png`]');
     },
   }],

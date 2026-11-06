@@ -35,7 +35,7 @@ describe('统一时间与并行系统', () => {
     state.runtime.paused = true;
     tickSimulation(state, 30);
     expect(state.runtime.totalSeconds).toBe(0);
-    expect(state.runtime.timeInDay).toBe(80);
+    expect(state.runtime.timeInDay).toBe(60);
   });
 
   it('第七天白天不触发血月，夜晚才触发且保留残敌', () => {
@@ -44,13 +44,25 @@ describe('统一时间与并行系统', () => {
     state.runtime.timeInDay = state.runtime.dayLength - 0.05;
     tickSimulation(state, 0.1);
     expect(state.runtime.day).toBe(7);
-    expect(state.runtime.bloodMoon).toBe(true);
+    expect(state.runtime.bloodMoon).toBe(false);
     state.runtime.timeInDay = 80;
     tickSimulation(state, 0.1);
     expect(state.runtime.bloodMoon).toBe(false);
-    state.runtime.timeInDay = 200;
+    state.runtime.timeInDay = state.runtime.dayLength * 20 / 24;
     tickSimulation(state, 0.1);
     expect(state.runtime.bloodMoon).toBe(true);
+  });
+
+  it('第七夜血月跨午夜持续，到第八天清晨才结束', () => {
+    const state = createInitialState();
+    state.runtime.day = 7;
+    state.runtime.timeInDay = state.runtime.dayLength - 0.05;
+    tickSimulation(state, 0.1);
+    expect(state.runtime.day).toBe(8);
+    expect(state.runtime.bloodMoon).toBe(true);
+    state.runtime.timeInDay = state.runtime.dayLength * 6 / 24;
+    tickSimulation(state, 0.1);
+    expect(state.runtime.bloodMoon).toBe(false);
   });
 
   it('熟食在跨场景放置超过22秒后会糊锅', () => {
@@ -68,6 +80,7 @@ describe('统一时间与并行系统', () => {
     const state = createInitialState();
     spawnTutorialZombie(state, 'tap-tutorial');
     state.defense.zombies[0]!.x = 32;
+    state.defense.barricades[0] = 0;
     for (let i = 0; i < 60; i += 1) tickSimulation(state, 1 / 60);
     expect(state.world.houseHp).toBeCloseTo(97);
     expect(state.defense.zombies[0]!.x).toBe(32);
@@ -107,7 +120,7 @@ describe('版本化存档与检查点', () => {
   it('损坏存档安全回到全新状态', () => {
     const storage = new MemoryStorage();
     storage.setItem(SAVE_KEY, '{bad json');
-    expect(loadGame(storage).saveVersion).toBe(1);
+    expect(loadGame(storage).saveVersion).toBe(2);
   });
 
   it('房屋失败恢复正式信标检查点', () => {

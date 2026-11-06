@@ -1,0 +1,1038 @@
+{
+  "log": [
+    {
+      "name": "start",
+      "elapsedSeconds": 1,
+      "day": 1,
+      "scene": "front",
+      "hp": 100,
+      "served": 0,
+      "failed": 0,
+      "beacon": 0,
+      "towers": [],
+      "inventory": {
+        "carrots": 0,
+        "stew": 0,
+        "scrap": 2,
+        "parts": 0,
+        "repairTools": 0
+      },
+      "progression": {
+        "watering": false,
+        "cutter": false,
+        "rescued": false,
+        "rescueAt": null
+      },
+      "metrics": {
+        "mealsCooked": 0,
+        "crafts": 0,
+        "repairs": 0,
+        "pausesChecked": 0,
+        "reloadsChecked": 0,
+        "touchActions": 0,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "tutorial-complete",
+      "elapsedSeconds": 82,
+      "day": 1,
+      "scene": "defense",
+      "hp": 100,
+      "served": 1,
+      "failed": 0,
+      "beacon": 1,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 1,
+        "stew": 0,
+        "scrap": 0,
+        "parts": 0,
+        "repairTools": 0
+      },
+      "progression": {
+        "watering": false,
+        "cutter": false,
+        "rescued": false,
+        "rescueAt": null
+      },
+      "metrics": {
+        "mealsCooked": 1,
+        "crafts": 2,
+        "repairs": 0,
+        "pausesChecked": 0,
+        "reloadsChecked": 0,
+        "touchActions": 53,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-2",
+      "elapsedSeconds": 150,
+      "day": 2,
+      "scene": "factory",
+      "hp": 100,
+      "served": 1,
+      "failed": 1,
+      "beacon": 1,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 1,
+        "stew": 0,
+        "scrap": 2,
+        "parts": 0,
+        "repairTools": 0
+      },
+      "progression": {
+        "watering": false,
+        "cutter": false,
+        "rescued": false,
+        "rescueAt": null
+      },
+      "metrics": {
+        "mealsCooked": 1,
+        "crafts": 4,
+        "repairs": 0,
+        "pausesChecked": 0,
+        "reloadsChecked": 0,
+        "touchActions": 80,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-3",
+      "elapsedSeconds": 211,
+      "day": 2,
+      "scene": "kitchen",
+      "hp": 100,
+      "served": 2,
+      "failed": 1,
+      "beacon": 1,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 17,
+        "stew": 1,
+        "scrap": 8,
+        "parts": 0,
+        "repairTools": 0
+      },
+      "progression": {
+        "watering": false,
+        "cutter": false,
+        "rescued": false,
+        "rescueAt": null
+      },
+      "metrics": {
+        "mealsCooked": 3,
+        "crafts": 4,
+        "repairs": 0,
+        "pausesChecked": 0,
+        "reloadsChecked": 0,
+        "touchActions": 124,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-4",
+      "elapsedSeconds": 268,
+      "day": 2,
+      "scene": "kitchen",
+      "hp": 120,
+      "served": 4,
+      "failed": 2,
+      "beacon": 1,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 15,
+        "stew": 1,
+        "scrap": 12,
+        "parts": 0,
+        "repairTools": 0
+      },
+      "progression": {
+        "watering": false,
+        "cutter": false,
+        "rescued": false,
+        "rescueAt": null
+      },
+      "metrics": {
+        "mealsCooked": 5,
+        "crafts": 4,
+        "repairs": 0,
+        "pausesChecked": 0,
+        "reloadsChecked": 0,
+        "touchActions": 146,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-5",
+      "elapsedSeconds": 331,
+      "day": 3,
+      "scene": "factory",
+      "hp": 120,
+      "served": 4,
+      "failed": 2,
+      "beacon": 1,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 14,
+        "stew": 2,
+        "scrap": 15,
+        "parts": 3,
+        "repairTools": 0
+      },
+      "progression": {
+        "watering": false,
+        "cutter": false,
+        "rescued": false,
+        "rescueAt": null
+      },
+      "metrics": {
+        "mealsCooked": 6,
+        "crafts": 7,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 0,
+        "touchActions": 188,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-6",
+      "elapsedSeconds": 395,
+      "day": 3,
+      "scene": "kitchen",
+      "hp": 120,
+      "served": 6,
+      "failed": 2,
+      "beacon": 2,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 12,
+        "stew": 2,
+        "scrap": 14,
+        "parts": 0,
+        "repairTools": 0
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": false,
+        "rescueAt": null
+      },
+      "metrics": {
+        "mealsCooked": 8,
+        "crafts": 9,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 0,
+        "touchActions": 225,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-7",
+      "elapsedSeconds": 459,
+      "day": 3,
+      "scene": "factory",
+      "hp": 120,
+      "served": 8,
+      "failed": 2,
+      "beacon": 2,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 10,
+        "stew": 2,
+        "scrap": 16,
+        "parts": 2,
+        "repairTools": 0
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": false,
+        "rescueAt": null
+      },
+      "metrics": {
+        "mealsCooked": 10,
+        "crafts": 11,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 0,
+        "touchActions": 263,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-8",
+      "elapsedSeconds": 517,
+      "day": 4,
+      "scene": "farm",
+      "hp": 120,
+      "served": 8,
+      "failed": 2,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 28,
+        "stew": 2,
+        "scrap": 18,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": false,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 10,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 0,
+        "touchActions": 324,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-9",
+      "elapsedSeconds": 573,
+      "day": 4,
+      "scene": "front",
+      "hp": 140,
+      "served": 11,
+      "failed": 2,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 26,
+        "stew": 1,
+        "scrap": 22,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": false,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 12,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 0,
+        "touchActions": 344,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-10",
+      "elapsedSeconds": 637,
+      "day": 4,
+      "scene": "kitchen",
+      "hp": 140,
+      "served": 13,
+      "failed": 2,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 23,
+        "stew": 2,
+        "scrap": 26,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 15,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 366,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-11",
+      "elapsedSeconds": 696,
+      "day": 5,
+      "scene": "defense",
+      "hp": 140,
+      "served": 13,
+      "failed": 2,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 59,
+        "stew": 2,
+        "scrap": 32,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 15,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 410,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-12",
+      "elapsedSeconds": 754,
+      "day": 5,
+      "scene": "kitchen",
+      "hp": 140,
+      "served": 15,
+      "failed": 2,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 57,
+        "stew": 2,
+        "scrap": 38,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 17,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 426,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-13",
+      "elapsedSeconds": 815,
+      "day": 5,
+      "scene": "kitchen",
+      "hp": 160,
+      "served": 18,
+      "failed": 3,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 54,
+        "stew": 2,
+        "scrap": 44,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 20,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 450,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-14",
+      "elapsedSeconds": 872,
+      "day": 6,
+      "scene": "defense",
+      "hp": 160,
+      "served": 18,
+      "failed": 3,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 90,
+        "stew": 2,
+        "scrap": 51,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 20,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 494,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-15",
+      "elapsedSeconds": 943,
+      "day": 6,
+      "scene": "kitchen",
+      "hp": 160,
+      "served": 20,
+      "failed": 3,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 88,
+        "stew": 2,
+        "scrap": 58,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 22,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 510,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-16",
+      "elapsedSeconds": 1006,
+      "day": 6,
+      "scene": "farm",
+      "hp": 160,
+      "served": 22,
+      "failed": 4,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 104,
+        "stew": 2,
+        "scrap": 65,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 24,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 546,
+        "bloodMoonSeen": false
+      }
+    },
+    {
+      "name": "minute-17",
+      "elapsedSeconds": 1062,
+      "day": 7,
+      "scene": "defense",
+      "hp": 160,
+      "served": 22,
+      "failed": 4,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 122,
+        "stew": 2,
+        "scrap": 77,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 24,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 570,
+        "bloodMoonSeen": true
+      }
+    },
+    {
+      "name": "minute-18",
+      "elapsedSeconds": 1128,
+      "day": 7,
+      "scene": "kitchen",
+      "hp": 160,
+      "served": 24,
+      "failed": 4,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 120,
+        "stew": 2,
+        "scrap": 85,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 26,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 586,
+        "bloodMoonSeen": true
+      }
+    },
+    {
+      "name": "minute-19",
+      "elapsedSeconds": 1192,
+      "day": 7,
+      "scene": "farm",
+      "hp": 160,
+      "served": 26,
+      "failed": 5,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 136,
+        "stew": 2,
+        "scrap": 96,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 28,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 622,
+        "bloodMoonSeen": true
+      }
+    },
+    {
+      "name": "minute-20",
+      "elapsedSeconds": 1248,
+      "day": 8,
+      "scene": "defense",
+      "hp": 160,
+      "served": 26,
+      "failed": 5,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 154,
+        "stew": 2,
+        "scrap": 105,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 28,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 646,
+        "bloodMoonSeen": true
+      }
+    },
+    {
+      "name": "minute-21",
+      "elapsedSeconds": 1305,
+      "day": 8,
+      "scene": "kitchen",
+      "hp": 160,
+      "served": 28,
+      "failed": 5,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 152,
+        "stew": 2,
+        "scrap": 111,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 30,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 662,
+        "bloodMoonSeen": true
+      }
+    },
+    {
+      "name": "finished",
+      "elapsedSeconds": 1332,
+      "day": 8,
+      "scene": "kitchen",
+      "hp": 180,
+      "served": 29,
+      "failed": 5,
+      "beacon": 3,
+      "towers": [
+        {
+          "lane": 1,
+          "hp": 80
+        },
+        {
+          "lane": 0,
+          "hp": 80
+        },
+        {
+          "lane": 2,
+          "hp": 80
+        }
+      ],
+      "inventory": {
+        "carrots": 151,
+        "stew": 2,
+        "scrap": 114,
+        "parts": 0,
+        "repairTools": 3
+      },
+      "progression": {
+        "watering": true,
+        "cutter": true,
+        "rescued": true,
+        "rescueAt": 583.0997000000023
+      },
+      "metrics": {
+        "mealsCooked": 31,
+        "crafts": 15,
+        "repairs": 0,
+        "pausesChecked": 1,
+        "reloadsChecked": 1,
+        "touchActions": 670,
+        "bloodMoonSeen": true
+      }
+    }
+  ],
+  "errors": []
+}

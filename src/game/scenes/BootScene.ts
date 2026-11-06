@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 const sceneAssets = ['front', 'defense', 'farm', 'factory', 'kitchen'] as const;
 const spriteAssets = [
   'refugee',
+  'infected',
   'zombie',
   'brute',
   'turret',
@@ -52,7 +53,10 @@ export class BootScene extends Phaser.Scene {
       fill.destroy();
     });
 
-    for (const scene of sceneAssets) this.load.image(`scene-${scene}`, `assets/scenes/${scene}.webp`);
+    for (const scene of sceneAssets) {
+      this.load.image(`scene-${scene}`, `assets/scenes/${scene}.webp`);
+      this.load.image(`night-${scene}`, `assets/scenes/${scene}-night.webp`);
+    }
     for (const sprite of spriteAssets) this.load.image(sprite, `assets/sprites/${sprite}.png`);
   }
 

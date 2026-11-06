@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 
-import { createCheckpoint, loadGame, restoreCheckpoint, saveGame } from '../state/storage';
+import { createCheckpoint, loadGame, restoreCheckpoint, saveGame, storageIsPersistent } from '../state/storage';
 import { removeDefeatedZombies, spawnTutorialZombie, tickSimulation } from '../state/simulation';
-import type { GameState, TutorialStep, ZombieState } from '../state/model';
+import type { GameState, Product, TutorialStep, ZombieState } from '../state/model';
+import { cancelProduction, currentObjective, finishProduction, placeTower, products, serveMeal, shoot, startProduction, startRepair, upgradeBeacon } from '../state/rules';
+import { AudioFeedback } from '../presentation/AudioFeedback';
 import {
   canMoveBetweenScenes,
   sceneLabels,
@@ -46,9 +48,30 @@ type DragDropHandler = (worldX: number, worldY: number) => boolean;
 
 export class MainScene extends Phaser.Scene {
   private state!: GameState;
+  private audio = new AudioFeedback();
+  private worldNights: Phaser.GameObjects.Image[] = [];
+  private productionControls: (Phaser.GameObjects.Graphics | Phaser.GameObjects.Text | Phaser.GameObjects.Image)[] = [];
+  private productLabels = new Map<Product, Phaser.GameObjects.Text>();
+  private towerSprites = new Map<number, Phaser.GameObjects.Image>();
+  private towerHints = new Map<number, Phaser.GameObjects.Text>();
+  private hintPanels: { label: Phaser.GameObjects.Text; panel: Phaser.GameObjects.Graphics; width: number; height: number }[] = [];
+  private houseRepairHint!: Phaser.GameObjects.Text;
+  private barriers: Phaser.GameObjects.Image[] = [];
+  private guest!: Phaser.GameObjects.Image;
+  private orderIcon!: Phaser.GameObjects.Image;
+  private orderText!: Phaser.GameObjects.Text;
+  private knife!: Phaser.GameObjects.Graphics;
+  private factoryFx!: Phaser.GameObjects.Graphics;
+  private pausedByPlayer = false;
+  private pauseShade!: Phaser.GameObjects.Rectangle;
+  private pauseMessage!: Phaser.GameObjects.Text;
+  private gunStatus!: Phaser.GameObjects.Text;
+  private saveLabel!: Phaser.GameObjects.Text;
+  private lastHeldShot = 0;
+  private guestDepartingUntil = 0;
   private currentScene: WorldScene = 'front';
   private dragging = new Set<Phaser.GameObjects.Image>();
-  private swipeStart: { x: number; y: number; scrollX: number; scrollY: number; time: number } | null = null;
+  private swipeStart: { x: number; y: number; scrollX: number; scrollY: number; time: number; axis?: 'x' | 'y' } | null = null;
   private cutting = false;
   private cuttingDistance = 0;
   private lastCutPoint = new Phaser.Math.Vector2();
@@ -72,6 +95,9 @@ export class MainScene extends Phaser.Scene {
   private kitchenPotText!: Phaser.GameObjects.Text;
   private kitchenCabinetText!: Phaser.GameObjects.Text;
   private kitchenFx!: Phaser.GameObjects.Graphics;
+  private cutterMachine!: Phaser.GameObjects.Graphics;
+  private wateringPipes!: Phaser.GameObjects.Graphics;
+  private kitchenBoardHint!: Phaser.GameObjects.Text;
   private potSurface!: Phaser.GameObjects.Graphics;
   private cabinetMeals: Phaser.GameObjects.Image[] = [];
   private focusRing!: Phaser.GameObjects.Graphics;
@@ -85,9 +111,11 @@ export class MainScene extends Phaser.Scene {
   private beaconScrap!: Phaser.GameObjects.Image;
   private beaconText!: Phaser.GameObjects.Text;
   private turretKit!: Phaser.GameObjects.Image;
-  private placedTurret!: Phaser.GameObjects.Image;
   private zombieSprites = new Map<number, Phaser.GameObjects.Image>();
   private zombieBars = new Map<number, Phaser.GameObjects.Rectangle>();
+  private zombieShadows = new Map<number, Phaser.GameObjects.Ellipse>();
+  private lastZombieHp = new Map<number, number>();
+  private lastZombieHit = new Map<number, number>();
 
   private statusText!: Phaser.GameObjects.Text;
   private objectiveText!: Phaser.GameObjects.Text;
@@ -103,6 +131,13 @@ export class MainScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.audio = new AudioFeedback();
+    this.worldNights = []; this.productionControls = []; this.productLabels.clear();
+    this.towerSprites.clear(); this.towerHints.clear(); this.barriers = []; this.farmSprites = []; this.farmLabels = []; this.cabinetMeals = [];
+    this.zombieSprites.clear(); this.zombieBars.clear(); this.zombieShadows.clear(); this.lastZombieHp.clear(); this.lastZombieHit.clear();
+    this.dragging.clear(); this.swipeStart = null; this.firingZombieId = null;
+    this.pausedByPlayer = false;
+    this.hintPanels = [];
     this.state = loadGame();
     this.state.runtime.paused = document.hidden;
     this.lastWallTime = performance.now();
@@ -130,6 +165,7 @@ export class MainScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       document.removeEventListener('visibilitychange', this.handleVisibility);
       saveGame(this.state);
+      this.audio.destroy();
     });
     this.syncVisuals();
   }
@@ -138,13 +174,25 @@ export class MainScene extends Phaser.Scene {
     const now = performance.now();
     const elapsedMs = Math.max(0, now - this.lastWallTime);
     this.lastWallTime = now;
-    const deltaSeconds = elapsedMs / 1000;
-    const previousTurretCooldown = this.state.defense.turretCooldown;
+    const deltaSeconds = this.state.runtime.paused ? 0 : elapsedMs / 1000;
+    const previousTowers = this.state.defense.towers.map(tower => tower.cooldown);
+    const previousPot = this.state.kitchen.pot;
+    const previousCuts = this.state.kitchen.cuts;
+    const previouslyRescued = this.state.progression.rescued;
     tickSimulation(this.state, deltaSeconds);
-    if (this.state.defense.turretPlaced && this.state.defense.turretCooldown > previousTurretCooldown) {
-      const target = this.state.defense.zombies.reduce<ZombieState | null>((nearest, zombie) => !nearest || zombie.x < nearest.x ? zombie : nearest, null);
-      if (target) this.shotEffect(target);
+    if (this.state.progression.cutter && Math.floor(this.state.kitchen.cuts) > Math.floor(previousCuts)) { this.cutEffect(); this.audio.play('chop'); }
+    if (!previouslyRescued && this.state.progression.rescued) {
+      this.showToast('收到回音了！伙伴们平安获救，小院的生活还会继续。');
+      this.audio.play('beacon');
     }
+    if (previousPot === 'cooking' && this.state.kitchen.pot === 'ready') this.audio.play('serve');
+    if (previousPot !== 'burnt' && this.state.kitchen.pot === 'burnt') this.audio.play('error');
+    this.state.defense.towers.forEach((tower, index) => {
+      if (tower.cooldown > (previousTowers[index] ?? 0)) {
+        const target = this.state.defense.zombies.filter(zombie => zombie.lane === tower.lane).reduce<ZombieState | null>((nearest, zombie) => !nearest || zombie.x < nearest.x ? zombie : nearest, null);
+        if (target) this.shotEffect(target, tower.lane);
+      }
+    });
 
     if (this.weldingHeld && this.state.factory.phase === 'welding') {
       this.state.factory.progress += deltaSeconds;
@@ -156,9 +204,9 @@ export class MainScene extends Phaser.Scene {
       }
     }
 
-    if (this.firingZombieId !== null) {
+    if (this.firingZombieId !== null && !this.state.runtime.paused && this.state.runtime.totalSeconds - this.lastHeldShot >= 0.22) {
       const target = this.state.defense.zombies.find((zombie) => zombie.id === this.firingZombieId);
-      if (target) target.hp -= deltaSeconds * 3.5;
+      if (target && shoot(this.state, target)) { this.shotEffect(target); this.lastHeldShot = this.state.runtime.totalSeconds; }
     }
 
     const defeated = removeDefeatedZombies(this.state);
@@ -167,6 +215,7 @@ export class MainScene extends Phaser.Scene {
     if (this.state.world.houseHp <= 0) {
       this.state = restoreCheckpoint(this.state);
       saveGame(this.state);
+      this.saveLabel?.setText(storageIsPersistent() ? '已保存' : '存档受限');
       this.showToast('房屋失守，已恢复到最近的信标检查点');
       this.scene.restart();
       return;
@@ -188,11 +237,13 @@ export class MainScene extends Phaser.Scene {
     for (const scene of worldScenes) {
       const origin = sceneOrigins[scene];
       this.add.image(origin.x, origin.y, `scene-${scene}`).setOrigin(0).setDisplaySize(VIEW_WIDTH, VIEW_HEIGHT);
+      this.worldNights.push(this.add.image(origin.x, origin.y, `night-${scene}`).setOrigin(0).setDisplaySize(VIEW_WIDTH, VIEW_HEIGHT).setAlpha(0));
     }
   }
 
   private createFarmInteractions(): void {
     const origin = sceneOrigins.farm;
+    this.wateringPipes = this.add.graphics().setDepth(1);
     const positions = [
       [98, 382],
       [195, 370],
@@ -234,6 +285,7 @@ export class MainScene extends Phaser.Scene {
       plot.stage = 'empty';
       plot.watered = false;
       this.state.inventory.carrots += 2;
+      this.audio.play('harvest');
       const sprite = this.farmSprites[index];
       if (sprite) this.rewardEffect(sprite.x, sprite.y - 25, '+2 胡萝卜');
       if (this.state.tutorial.step === 'harvest') this.state.tutorial.step = 'plant';
@@ -273,6 +325,7 @@ export class MainScene extends Phaser.Scene {
       this.state.inventory.carrots -= 1;
       this.state.kitchen.board = 'whole';
       this.state.kitchen.cuts = 0;
+      this.audio.play('drop');
       return true;
     });
 
@@ -289,6 +342,7 @@ export class MainScene extends Phaser.Scene {
       (pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
         event.stopPropagation();
         if (this.state.kitchen.board !== 'whole') return;
+        if (this.state.progression.cutter) return;
         this.cutting = true;
         this.cuttingDistance = 0;
         this.lastCutPoint.set(pointer.x, pointer.y);
@@ -301,6 +355,7 @@ export class MainScene extends Phaser.Scene {
       this.state.kitchen.bowlPieces = 0;
       this.state.kitchen.pot = 'cooking';
       this.state.kitchen.cookStartedAt = this.state.runtime.totalSeconds;
+      this.audio.play('drop');
       this.showToast('已下锅，及时回来装盘，别让它糊掉');
       return true;
     });
@@ -339,61 +394,57 @@ export class MainScene extends Phaser.Scene {
     this.kitchenPotText = this.addHint(origin.x + 205, origin.y + 472, '锅是空的');
     this.kitchenCabinetText = this.addHint(origin.x + 335, origin.y + 398, '成品柜 0/3');
     this.addHint(origin.x + 58, origin.y + 582, '食材架');
-    this.addHint(origin.x + 233, origin.y + 670, '砧板 · 划动切菜');
+    this.kitchenBoardHint = this.addHint(origin.x + 233, origin.y + 670, '砧板 · 划动切菜');
     this.addHint(origin.x + 95, origin.y + 670, '备菜碗');
     this.kitchenFx = this.add.graphics().setDepth(20);
   }
 
   private createFrontInteractions(): void {
     const origin = sceneOrigins.front;
-    this.add.image(origin.x + 195, origin.y + 390, 'refugee').setDisplaySize(220, 220);
-    this.add.image(origin.x + 288, origin.y + 252, 'stew').setDisplaySize(58, 58);
-    this.addHint(origin.x + 288, origin.y + 298, '想吃蔬菜热汤');
+    this.guest = this.add.image(origin.x + 195, origin.y + 335, 'refugee').setDisplaySize(205, 205);
+    this.orderIcon = this.add.image(origin.x + 288, origin.y + 252, 'stew').setDisplaySize(58, 58);
+    this.orderText = this.addHint(origin.x + 288, origin.y + 298, '想吃蔬菜热汤');
     this.add.rectangle(origin.x + 195, origin.y + 520, 210, 13, 0x382a24, 0.85);
     this.patienceFill = this.add.rectangle(origin.x + 90, origin.y + 520, 210, 13, 0xe3c461, 1).setOrigin(0, 0.5);
     this.visitorText = this.addHint(origin.x + 195, origin.y + 554, '等待出餐');
     this.frontStew = this.add.image(origin.x + 96, origin.y + 675, 'stew').setDisplaySize(92, 92);
     this.makeDraggable(this.frontStew, { x: origin.x + 96, y: origin.y + 675 }, (x, y) => {
-      if (this.state.inventory.stew <= 0 || !this.isNear(x, y, origin.x + 195, origin.y + 390, 145)) return false;
-      this.state.inventory.stew -= 1;
-      this.state.front.served += 1;
-      this.state.front.visitorId += 1;
-      this.state.front.patience = this.state.front.maxPatience;
-      this.state.world.houseXp += 20;
+      if (!this.isNear(x, y, origin.x + 195, origin.y + 390, 145) || !serveMeal(this.state)) return false;
       this.rewardEffect(origin.x + 195, origin.y + 380, '+20 家园经验');
-      if (this.state.world.houseXp >= this.state.world.houseLevel * 60) {
-        this.state.world.houseXp = 0;
-        this.state.world.houseLevel += 1;
-        this.state.world.houseMaxHp += 10;
-        this.state.world.houseHp = this.state.world.houseMaxHp;
-      }
-      if (this.state.tutorial.step === 'serve') this.state.tutorial.step = 'make-part';
+      this.audio.play('serve');
+      this.guestDepartingUntil = this.time.now + 350;
+      this.tweens.add({ targets: this.guest, alpha: 0, x: origin.x + 240, duration: 350, onComplete: () => this.guest.setPosition(origin.x + 195, origin.y + 335).setAlpha(1) });
       this.showToast('亲手出餐成功，家园经验 +20');
       return true;
     });
     this.addHint(origin.x + 96, origin.y + 745, '成品托盘');
+    const desk = this.add.graphics().setDepth(-0.5);
+    // Objects stay above the counter; only this painted serving desk is foreground scenery.
+    desk.fillStyle(0x315d65, 0.15).fillEllipse(origin.x + 195, origin.y + 753, 330, 30);
+    desk.fillStyle(0x8ebcb1).fillRoundedRect(origin.x + 36, origin.y + 696, 318, 63, 8);
+    desk.fillStyle(0xe5c7a3).fillPoints([new Phaser.Math.Vector2(origin.x + 46, origin.y + 637), new Phaser.Math.Vector2(origin.x + 344, origin.y + 637), new Phaser.Math.Vector2(origin.x + 365, origin.y + 701), new Phaser.Math.Vector2(origin.x + 25, origin.y + 701)], true);
+    desk.lineStyle(3, 0xfff4db).lineBetween(origin.x + 27, origin.y + 701, origin.x + 363, origin.y + 701);
+    desk.lineStyle(1, 0xb89776, 0.4).lineBetween(origin.x + 42, origin.y + 668, origin.x + 348, origin.y + 668);
+    // Keep depth zero scenery above background images and below table items.
+    desk.setDepth(0);
+    this.frontStew.setDepth(2);
   }
 
   private createFactoryInteractions(): void {
     const origin = sceneOrigins.factory;
     this.factoryScrap = this.add.image(origin.x + 58, origin.y + 680, 'scrap').setDisplaySize(88, 88);
     this.factoryPiece = this.add.image(origin.x + 82, origin.y + 420, 'part').setDisplaySize(82, 82);
+    this.factoryFx = this.add.graphics().setDepth(20);
     this.factoryText = this.addHint(origin.x + 195, origin.y + 745, '把废料拖到左侧切割台');
     this.addHint(origin.x + 82, origin.y + 475, '切割台');
     this.addHint(origin.x + 306, origin.y + 475, '焊接台');
     this.addHint(origin.x + 205, origin.y + 601, '装配台');
 
     this.makeDraggable(this.factoryScrap, { x: origin.x + 58, y: origin.y + 680 }, (x, y) => {
-      if (!['make-part', 'make-turret', 'complete'].includes(this.state.tutorial.step)) {
-        this.showToast('先完成种菜、做饭和出餐，再制作零件');
-        return false;
-      }
-      if (this.state.factory.phase !== 'idle' || this.state.inventory.scrap <= 0) return false;
       if (!this.isNear(x, y, origin.x + 82, origin.y + 420, 95)) return false;
-      this.state.inventory.scrap -= 1;
-      this.state.factory.phase = 'cutting';
-      this.state.factory.progress = 0;
-      this.state.factory.turretJob = this.state.tutorial.step === 'make-turret';
+      const error = startProduction(this.state);
+      if (error) { this.showToast(error); return false; }
+      this.audio.play('machine');
       this.showToast('沿着切割台左右拖动完成切割');
       return true;
     });
@@ -425,26 +476,42 @@ export class MainScene extends Phaser.Scene {
           this.weldingHeld = true;
         } else if (this.state.factory.phase === 'assembly') {
           this.state.factory.progress += 1;
+          this.audio.play('machine');
+          this.tweens.add({ targets: this.factoryPiece, angle: this.factoryPiece.angle + 35, duration: 100 });
           if (this.state.factory.progress >= 3) this.finishFactoryJob();
         }
       },
     );
-
+    this.createProductionChoices(origin);
   }
 
   private finishFactoryJob(): void {
-    if (this.state.factory.turretJob) {
-      this.state.defense.turretBuilt = true;
-      this.state.tutorial.step = 'place-turret';
-      this.showToast('自动机枪塔制造完成');
-    } else {
-      this.state.inventory.parts += 1;
-      if (this.state.tutorial.step === 'make-part') this.state.tutorial.step = 'start-beacon';
-      this.showToast('信标零件制造完成');
-    }
-    this.state.factory.phase = 'idle';
-    this.state.factory.progress = 0;
-    this.state.factory.turretJob = false;
+    this.showToast(finishProduction(this.state));
+    this.audio.play('serve');
+  }
+
+  private createProductionChoices(origin: { x: number; y: number }): void {
+    const panel = this.add.graphics().setDepth(9);
+    panel.fillStyle(0xfaffff, 0.94).fillRoundedRect(origin.x + 104, origin.y + 644, 273, 82, 14);
+    this.productionControls.push(panel);
+    (Object.keys(products) as Product[]).forEach((product, index) => {
+      const spec = products[product];
+      const icon = this.add.image(origin.x + 131 + index * 52, origin.y + 675, spec.icon).setDisplaySize(37, 37).setDepth(10);
+      icon.setInteractive({ useHandCursor: true }).on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.state.factory.selected = product;
+        this.showToast(`${spec.name} · ${spec.cost}废料${this.state.world.beaconStage < spec.beacon ? ` · 信标${spec.beacon}阶解锁` : '，拖废料到切割台开工'}`);
+      });
+      const label = this.add.text(origin.x + 131 + index * 52, origin.y + 705, spec.name, { color: '#39776e', fontSize: '10px', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(10);
+      this.productLabels.set(product, label);
+      this.productionControls.push(icon, label);
+    });
+    const cancel = this.add.text(origin.x + 335, origin.y + 610, '取消加工', { color: '#92625e', backgroundColor: '#fff7f4', padding: { x: 7, y: 6 }, fontSize: '12px' }).setOrigin(0.5).setDepth(9).setInteractive({ useHandCursor: true });
+    cancel.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+      event.stopPropagation();
+      if (cancelProduction(this.state)) this.showToast('加工已取消，投入材料全部返还');
+    });
+    this.productionControls.push(cancel);
   }
 
   private createBeaconInteractions(): void {
@@ -460,6 +527,7 @@ export class MainScene extends Phaser.Scene {
       this.state.beacon.initialSignal = true;
       this.state.tutorial.step = 'tap-zombie';
       spawnTutorialZombie(this.state, 'tap-tutorial');
+      this.beaconEffect(origin);
       this.showToast('初始信号启动：危险正在接近防线');
       return true;
     });
@@ -473,32 +541,42 @@ export class MainScene extends Phaser.Scene {
       this.state.defense.turretBlueprint = true;
       this.state.tutorial.step = 'make-turret';
       createCheckpoint(this.state);
+      this.beaconEffect(origin);
       saveGame(this.state);
       this.showToast('正式信标第 1 阶段完成：机枪塔图纸已解锁');
       return true;
+    });
+    const signal = this.add.zone(origin.x + 195, origin.y + 170, 130, 115).setInteractive({ useHandCursor: true });
+    signal.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+      event.stopPropagation();
+      if (!this.state.tutorial.completed) return;
+      const stage = this.state.world.beaconStage;
+      this.showToast(upgradeBeacon(this.state));
+      if (this.state.world.beaconStage > stage) this.beaconEffect(origin);
     });
   }
 
   private createDefenseInteractions(): void {
     const origin = sceneOrigins.defense;
     [0, 1, 2].forEach((lane) => {
-      this.add.image(origin.x + 72, origin.y + 356 + lane * 142, 'barricade').setDisplaySize(104, 104).setAlpha(0.82);
+      this.barriers.push(this.add.image(origin.x + 72, origin.y + 356 + lane * 142, 'barricade').setDisplaySize(104, 104));
     });
 
     this.turretKit = this.add.image(origin.x + 286, origin.y + 716, 'turret').setDisplaySize(112, 112);
     this.makeDraggable(this.turretKit, { x: origin.x + 286, y: origin.y + 716 }, (x, y) => {
-      if (!this.state.defense.turretBuilt || this.state.defense.turretPlaced) return false;
+      if (this.state.defense.kits <= 0) return false;
       const lane = [356, 498, 640].findIndex((laneY) => this.isNear(x, y, origin.x + 108, origin.y + laneY, 68));
       if (lane < 0) return false;
-      this.state.defense.turretLane = lane;
-      this.state.defense.turretPlaced = true;
-      this.state.tutorial.step = 'complete';
-      this.state.tutorial.completed = true;
+      if (!placeTower(this.state, lane)) { this.showToast('这个位置已有炮塔'); return false; }
       saveGame(this.state);
-      this.showToast('自动机枪塔已建成，核心循环完成');
+      this.showToast('机枪塔开始守护这条道路，看看顶部的下一个目标');
+      this.audio.play('machine');
       return true;
     });
-    this.placedTurret = this.add.image(origin.x + 108, origin.y + 500, 'turret').setDisplaySize(120, 120);
+    const house = this.add.zone(origin.x + 25, origin.y + 280, 70, 180).setInteractive({ useHandCursor: true });
+    house.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); this.showToast(startRepair(this.state)); });
+    this.houseRepairHint = this.addHint(origin.x + 90, origin.y + 217, '点院门维修房屋与路障');
+    this.gunStatus = this.addHint(origin.x + 195, origin.y + 747, '');
   }
 
   private createHud(): void {
@@ -558,6 +636,16 @@ export class MainScene extends Phaser.Scene {
 
     this.nightOverlay = this.add.rectangle(195, 422, 390, 844, 0x17254c, 0).setScrollFactor(0).setDepth(900);
     this.nightOverlay.setBlendMode(Phaser.BlendModes.MULTIPLY);
+    const sound = this.add.text(367, 94, '声 开', { color: '#39776e', backgroundColor: '#faffff', padding: { x: 5, y: 5 }, fontSize: '11px' }).setOrigin(0.5).setScrollFactor(0).setDepth(1100).setInteractive({ useHandCursor: true });
+    sound.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+      event.stopPropagation(); this.audio.unlock(); this.audio.enabled = !this.audio.enabled; sound.setText(this.audio.enabled ? '声 开' : '声 关');
+    });
+    const pause = this.add.text(325, 94, '暂停', { color: '#39776e', backgroundColor: '#faffff', padding: { x: 5, y: 5 }, fontSize: '11px' }).setOrigin(0.5).setScrollFactor(0).setDepth(1100).setInteractive({ useHandCursor: true });
+    pause.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); this.setPaused(true); });
+    this.saveLabel = this.add.text(14, 92, '自动存档', { color: '#39776e', backgroundColor: '#faffff', padding: { x: 4, y: 3 }, fontSize: '10px' }).setScrollFactor(0).setDepth(1001);
+    this.pauseShade = this.add.rectangle(195, 422, 390, 844, 0x173b50, 0.7).setScrollFactor(0).setDepth(1500).setVisible(false).setInteractive();
+    this.pauseMessage = this.add.text(195, 422, '小院已暂停\n\n点击任意处继续', { color: '#ffffff', fontSize: '23px', align: 'center', lineSpacing: 8 }).setOrigin(0.5).setScrollFactor(0).setDepth(1501).setVisible(false);
+    this.pauseShade.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); this.setPaused(false); });
     this.toastText = this.add
       .text(195, 700, '', {
         align: 'center',
@@ -576,6 +664,7 @@ export class MainScene extends Phaser.Scene {
 
   private createSwipeInput(): void {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.audio.unlock();
       this.swipeStart = {
         x: pointer.x,
         y: pointer.y,
@@ -592,6 +681,8 @@ export class MainScene extends Phaser.Scene {
         if (this.cuttingDistance >= 34) {
           this.cuttingDistance = 0;
           this.state.kitchen.cuts += 1;
+          this.audio.play('chop');
+          this.cutEffect();
           const origin = sceneOrigins.kitchen;
           this.rewardEffect(origin.x + 233, origin.y + 600, '切配 ' + Math.min(this.state.kitchen.cuts, 3) + '/3');
           if (this.state.kitchen.cuts >= 3) {
@@ -609,6 +700,8 @@ export class MainScene extends Phaser.Scene {
         if (this.factoryCutDistance >= 42) {
           this.factoryCutDistance = 0;
           this.state.factory.progress += 1;
+          this.audio.play('machine');
+          this.sparkEffect(sceneOrigins.factory.x + 82, sceneOrigins.factory.y + 420);
           if (this.state.factory.progress >= 3) {
             this.state.factory.phase = 'cut';
             this.state.factory.progress = 0;
@@ -621,11 +714,19 @@ export class MainScene extends Phaser.Scene {
       if (!this.swipeStart || !pointer.isDown) return;
       const deltaX = pointer.x - this.swipeStart.x;
       const deltaY = pointer.y - this.swipeStart.y;
-      if (Math.abs(deltaX) > Math.abs(deltaY)) {
-        this.cameras.main.scrollX = Phaser.Math.Clamp(this.swipeStart.scrollX - deltaX, 0, VIEW_WIDTH * 2);
+      if (!this.swipeStart.axis && Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 8) this.swipeStart.axis = Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y';
+      const horizontal = this.swipeStart.axis === 'x';
+      const amount = horizontal ? deltaX : deltaY;
+      const current = scenePositions[this.currentScene];
+      const adjacent = worldScenes.find(scene => scenePositions[scene].x === current.x + (horizontal ? (amount < 0 ? 1 : -1) : 0)
+        && scenePositions[scene].y === current.y + (horizontal ? 0 : (amount < 0 ? 1 : -1)));
+      const allowed = adjacent && canMoveBetweenScenes(this.currentScene, adjacent);
+      const travel = allowed ? Phaser.Math.Clamp(amount, horizontal ? -VIEW_WIDTH : -VIEW_HEIGHT, horizontal ? VIEW_WIDTH : VIEW_HEIGHT) : Phaser.Math.Clamp(amount * 0.12, -18, 18);
+      if (horizontal) {
+        this.cameras.main.scrollX = Phaser.Math.Clamp(this.swipeStart.scrollX - travel, 0, VIEW_WIDTH * 2);
         this.cameras.main.scrollY = this.swipeStart.scrollY;
       } else {
-        this.cameras.main.scrollY = Phaser.Math.Clamp(this.swipeStart.scrollY - deltaY, 0, VIEW_HEIGHT * 2);
+        this.cameras.main.scrollY = Phaser.Math.Clamp(this.swipeStart.scrollY - travel, 0, VIEW_HEIGHT * 2);
         this.cameras.main.scrollX = this.swipeStart.scrollX;
       }
     });
@@ -687,28 +788,58 @@ export class MainScene extends Phaser.Scene {
     this.syncFactoryAndBeacon();
     this.syncDefense();
     this.syncHud();
+    for (const hint of this.hintPanels) {
+      const { label, panel } = hint;
+      panel.setVisible(label.visible);
+      if (hint.width === label.width && hint.height === label.height) continue;
+      hint.width = label.width; hint.height = label.height;
+      panel.clear();
+      panel.fillStyle(0x39776e, 0.12).fillRoundedRect(label.x - label.width / 2, label.y - label.height / 2 + 2, label.width, label.height, 8);
+      panel.fillStyle(0xfaffff, 0.96).fillRoundedRect(label.x - label.width / 2, label.y - label.height / 2, label.width, label.height, 8);
+    }
   }
 
   private syncFarm(): void {
+    this.wateringPipes.clear();
+    if (this.state.progression.watering) {
+      const { x, y } = sceneOrigins.farm;
+      this.wateringPipes.lineStyle(5, 0xd7f9fa, 0.9).lineBetween(x + 39, y + 335, x + 39, y + 610);
+      this.wateringPipes.lineStyle(2, 0x6fa8bd).lineBetween(x + 39, y + 335, x + 39, y + 610);
+      for (const row of [346, 449, 550]) {
+        this.wateringPipes.lineStyle(4, 0xa6d9e6, 0.95).lineBetween(x + 39, y + row, x + 345, y + row);
+        for (const column of [98, 195, 292]) {
+          const drop = (this.time.now / 700 + column / 100) % 1;
+          this.wateringPipes.fillStyle(0xaeefff, 1 - drop).fillCircle(x + column, y + row + drop * 19, 2.5);
+        }
+      }
+      this.wateringPipes.fillStyle(0xeafffa).fillRoundedRect(x + 315, y + 295, 37, 35, 5);
+      this.wateringPipes.fillStyle(0x53bea9).fillCircle(x + 334, y + 312, 8);
+    }
     this.state.farm.plots.forEach((plot, index) => {
       const sprite = this.farmSprites[index];
       const label = this.farmLabels[index];
       if (!sprite || !label) return;
       sprite.setVisible(plot.stage !== 'empty');
       if (plot.stage === 'ready') {
+        sprite.setCrop();
         sprite.setTexture('carrot').setDisplaySize(70, 70);
         label.setText('成熟');
       } else if (plot.stage === 'growing') {
-        sprite.setTexture('seeds').setDisplaySize(48, 48);
+        sprite.setTexture('carrot').setDisplaySize(22 + Math.min(28, (this.state.runtime.totalSeconds - plot.plantedAt) / plot.growSeconds * 28), 40);
+        sprite.setTint(0xb9ddaa);
+        sprite.setCrop(50, 0, 206, 140);
         const effective = plot.watered ? plot.growSeconds * 0.65 : plot.growSeconds;
         const remaining = Math.max(0, Math.ceil(effective - (this.state.runtime.totalSeconds - plot.plantedAt)));
         label.setText(`${plot.watered ? '已浇水 ' : ''}${remaining}秒`);
       } else label.setText('点击播种');
+      if (plot.stage === 'ready') sprite.clearTint();
     });
   }
 
   private syncKitchen(): void {
     const origin = sceneOrigins.kitchen;
+    this.cutterMachine.setVisible(this.state.progression.cutter);
+    this.kitchenBoardHint.setText(this.state.progression.cutter ? '自动切菜机' : '砧板 · 划动切菜');
     this.kitchenCarrot.setVisible(this.state.inventory.carrots > 0 && this.state.kitchen.board === 'empty');
     if (!this.dragging.has(this.kitchenCarrot)) this.kitchenCarrot.setPosition(origin.x + 58, origin.y + 535);
 
@@ -737,7 +868,8 @@ export class MainScene extends Phaser.Scene {
     this.cabinetMeals.forEach((meal, index) => meal.setVisible(index < this.state.inventory.stew));
     this.potSurface.clear();
     if (this.state.kitchen.pot === 'empty') {
-      this.potSurface.fillStyle(0xd7eaf1, 1).fillEllipse(origin.x + 205, origin.y + 382, 74, 27);
+      this.potSurface.fillStyle(0xb8d6df, 1).fillEllipse(origin.x + 205, origin.y + 382, 92, 27);
+      this.potSurface.lineStyle(1, 0x8bb1bf).strokeEllipse(origin.x + 205, origin.y + 382, 92, 27);
     } else if (this.state.kitchen.pot === 'burnt') {
       this.potSurface.fillStyle(0x695554, 0.96).fillEllipse(origin.x + 205, origin.y + 382, 74, 27);
     }
@@ -757,15 +889,23 @@ export class MainScene extends Phaser.Scene {
   private syncFront(): void {
     const origin = sceneOrigins.front;
     this.frontStew.setVisible(this.state.inventory.stew > 0);
+    this.guest.setVisible(this.state.front.active || this.time.now < this.guestDepartingUntil);
+    this.guest.setFlipX(this.state.front.visitorId % 2 === 0);
+    this.orderIcon.setVisible(this.state.front.active);
+    this.orderText.setVisible(this.state.front.active);
     if (!this.dragging.has(this.frontStew)) this.frontStew.setPosition(origin.x + 96, origin.y + 675);
     const patienceRatio = Phaser.Math.Clamp(this.state.front.patience / this.state.front.maxPatience, 0, 1);
-    this.patienceFill.width = 210 * patienceRatio;
+    this.patienceFill.width = this.state.front.active ? 210 * patienceRatio : 0;
     this.patienceFill.fillColor = patienceRatio > 0.5 ? 0xe3c461 : patienceRatio > 0.2 ? 0xe28b43 : 0xd64b3f;
-    this.visitorText.setText(`耐心 ${Math.ceil(this.state.front.patience)}秒 · 已救助 ${this.state.front.served} 人`);
+    this.visitorText.setText(this.state.front.active ? `想喝一碗热汤 · 已救助 ${this.state.front.served} 人`
+      : this.state.runtime.timeInDay / this.state.runtime.dayLength * 24 >= 19 || this.state.runtime.timeInDay / this.state.runtime.dayLength * 24 < 6
+        ? '晚安，伙伴们在明天清晨回来' : '休息片刻 · 下一位伙伴很快就到');
   }
 
   private syncFactoryAndBeacon(): void {
     const origin = sceneOrigins.factory;
+    this.productionControls.forEach(control => control.setVisible(this.state.tutorial.completed));
+    this.productLabels.forEach((label, product) => label.setColor(product === this.state.factory.selected ? '#c47948' : '#39776e'));
     this.factoryScrap.setVisible(this.state.factory.phase === 'idle' && this.state.inventory.scrap > 0);
     if (!this.dragging.has(this.factoryScrap)) this.factoryScrap.setPosition(origin.x + 58, origin.y + 680);
 
@@ -792,6 +932,17 @@ export class MainScene extends Phaser.Scene {
               ? '拖到下方装配台'
               : `点击拧紧 ${this.state.factory.progress}/3`;
     this.factoryText.setText(factoryLabel);
+    if (this.state.factory.phase === 'idle' && this.state.tutorial.completed) this.factoryText.setText(`${products[this.state.factory.selected].name} · ${products[this.state.factory.selected].cost}废料 → 拖至切割台`);
+    this.factoryFx.clear();
+    if (this.state.factory.phase === 'welding') {
+      const intensity = this.weldingHeld ? 1 : 0.35;
+      this.factoryFx.fillStyle(0xb8f7ff, intensity * 0.5).fillCircle(origin.x + 306, origin.y + 420, 20 + Math.sin(this.time.now / 40) * 4);
+      this.factoryFx.lineStyle(2, 0xffffff, intensity);
+      for (let i = 0; i < 8; i += 1) {
+        const angle = i * Math.PI / 4 + this.time.now / 400;
+        this.factoryFx.lineBetween(origin.x + 306 + Math.cos(angle) * 10, origin.y + 420 + Math.sin(angle) * 10, origin.x + 306 + Math.cos(angle) * 28, origin.y + 420 + Math.sin(angle) * 28);
+      }
+    }
 
     this.beaconPart.setVisible(this.state.tutorial.step === 'start-beacon' && this.state.inventory.parts > 0);
     this.beaconScrap.setVisible(this.state.tutorial.step === 'repair-beacon' && this.state.inventory.scrap > 0);
@@ -799,7 +950,7 @@ export class MainScene extends Phaser.Scene {
     if (!this.dragging.has(this.beaconScrap)) this.beaconScrap.setPosition(origin.x + 235, origin.y + 280);
     this.beaconText.setText(
       this.state.world.beaconStage > 0
-        ? `信标阶段 ${this.state.world.beaconStage} · 机枪塔图纸已解锁`
+        ? `信标 ${this.state.world.beaconStage}/3 · ${this.state.tutorial.completed ? '点击塔身查看/维修' : '机枪塔图纸已解锁'}`
         : this.state.beacon.initialSignal
           ? '初始信号已启动 · 等待正式维修'
           : '信标等待零件',
@@ -811,16 +962,21 @@ export class MainScene extends Phaser.Scene {
     const liveIds = new Set(this.state.defense.zombies.map((zombie) => zombie.id));
     for (const [id, sprite] of this.zombieSprites) {
       if (liveIds.has(id)) continue;
-      sprite.destroy();
+      this.tweens.add({ targets: sprite, alpha: 0, angle: 18, y: sprite.y + 15, duration: 240, onComplete: () => sprite.destroy() });
       this.zombieBars.get(id)?.destroy();
+      this.zombieShadows.get(id)?.destroy();
       this.zombieSprites.delete(id);
       this.zombieBars.delete(id);
+      this.zombieShadows.delete(id);
+      this.lastZombieHp.delete(id);
+      this.lastZombieHit.delete(id);
     }
 
     for (const zombie of this.state.defense.zombies) {
       let sprite = this.zombieSprites.get(zombie.id);
       if (!sprite) {
-        sprite = this.add.image(0, 0, zombie.kind === 'brute' ? 'brute' : 'zombie').setDisplaySize(
+        this.zombieShadows.set(zombie.id, this.add.ellipse(0, 0, 62, 15, 0x23484e, 0.2));
+        sprite = this.add.image(0, 0, zombie.kind === 'brute' ? 'brute' : zombie.kind === 'refugee' ? 'infected' : 'zombie').setDisplaySize(
           zombie.kind === 'brute' ? 118 : 94,
           zombie.kind === 'brute' ? 118 : 94,
         );
@@ -829,9 +985,8 @@ export class MainScene extends Phaser.Scene {
           event.stopPropagation();
           const target = this.state.defense.zombies.find((item) => item.id === zombie.id);
           if (!target) return;
-          if (target.kind === 'hold-tutorial') this.firingZombieId = target.id;
-          else target.hp -= 1;
-          this.shotEffect(target);
+          if (target.kind !== 'tap-tutorial') { this.firingZombieId = target.id; this.lastHeldShot = this.state.runtime.totalSeconds; }
+          if (target.kind !== 'hold-tutorial' && shoot(this.state, target)) this.shotEffect(target);
           this.cameras.main.shake(45, 0.002);
         });
         const bar = this.add.rectangle(0, 0, 58, 6, 0x65c76b).setOrigin(0, 0.5);
@@ -840,29 +995,51 @@ export class MainScene extends Phaser.Scene {
       }
       const x = origin.x + zombie.x;
       const y = origin.y + 345 + zombie.lane * 142;
-      sprite.setPosition(x, y);
+      sprite.setPosition(x, y + Math.sin(this.time.now / 120 + zombie.id) * 2.5);
+      this.zombieShadows.get(zombie.id)?.setPosition(x, y + 40);
+      if ((this.lastZombieHp.get(zombie.id) ?? zombie.hp) > zombie.hp) {
+        this.lastZombieHit.set(zombie.id, this.time.now);
+        sprite.setTint(0xffd6cb);
+        this.time.delayedCall(90, () => { if (sprite?.active) sprite.clearTint(); });
+      }
+      this.lastZombieHp.set(zombie.id, zombie.hp);
       const bar = this.zombieBars.get(zombie.id);
       if (bar) {
         bar.setPosition(x - 29, y - 62);
         bar.width = 58 * Phaser.Math.Clamp(zombie.hp / zombie.maxHp, 0, 1);
+        bar.setVisible(this.time.now - (this.lastZombieHit.get(zombie.id) ?? -5000) < 1500);
       }
     }
 
-    this.turretKit.setVisible(this.state.defense.turretBuilt && !this.state.defense.turretPlaced);
+    this.turretKit.setVisible(this.state.defense.kits > 0);
     if (!this.dragging.has(this.turretKit)) this.turretKit.setPosition(origin.x + 286, origin.y + 716);
-    this.placedTurret.setVisible(this.state.defense.turretPlaced);
-    this.placedTurret.setPosition(origin.x + 108, origin.y + 356 + (this.state.defense.turretLane ?? 1) * 142);
+    for (const tower of this.state.defense.towers) {
+      let sprite = this.towerSprites.get(tower.lane);
+      if (!sprite) {
+        sprite = this.add.image(origin.x + 108, origin.y + 356 + tower.lane * 142, 'turret').setDisplaySize(110, 110).setInteractive({ useHandCursor: true });
+        sprite.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); this.showToast(startRepair(this.state, tower.lane)); });
+        this.towerSprites.set(tower.lane, sprite);
+        this.towerHints.set(tower.lane, this.addHint(origin.x + 108, origin.y + 410 + tower.lane * 142, ''));
+      }
+      sprite.setTint(tower.hp <= 0 ? 0x7b8290 : 0xffffff);
+      sprite.setAlpha(tower.hp <= 0 ? 0.7 : 1);
+      this.towerHints.get(tower.lane)?.setText(tower.repairAt !== null ? `维修 ${Math.max(0, Math.ceil(tower.repairAt - this.state.runtime.totalSeconds))}秒`
+        : tower.hp <= 0 ? '已损坏 · 点此维修' : `炮塔 ${Math.ceil(tower.hp)}/${tower.maxHp}`);
+    }
+    this.barriers.forEach((barrier, index) => barrier.setAlpha((this.state.defense.barricades[index] ?? 0) > 0 ? 1 : 0.22));
+    this.gunStatus.setText(this.state.defense.reloadAt !== null ? '正在换弹…' : `手枪 ${this.state.defense.ammo}/10 · 长按连射 · 维修工具 ${this.state.inventory.repairTools}`);
+    this.houseRepairHint.setText(this.state.defense.houseRepairAt !== null ? `房屋维修 ${Math.max(0, Math.ceil(this.state.defense.houseRepairAt - this.state.runtime.totalSeconds))}秒` : '点院门维修房屋与路障');
   }
 
   private syncHud(): void {
     const dayProgress = this.state.runtime.timeInDay / this.state.runtime.dayLength;
     const hour = Math.floor(dayProgress * 24);
     const minute = Math.floor((dayProgress * 24 - hour) * 60);
-    const period = hour >= 19 || hour < 6 ? '夜晚' : '白天';
+    const period = this.state.runtime.bloodMoon ? '血月之夜' : hour >= 19 || hour < 6 ? '夜晚' : '白天';
     this.statusText.setText(`家园 Lv.${this.state.world.houseLevel}  第 ${this.state.runtime.day} 天 ${period}\n房屋 ${Math.ceil(this.state.world.houseHp)}/${this.state.world.houseMaxHp}`);
-    this.inventoryText.setText(`胡萝卜 ${this.state.inventory.carrots}  热汤 ${this.state.inventory.stew}\n废料 ${this.state.inventory.scrap}  ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+    this.inventoryText.setText(`胡萝卜 ${this.state.inventory.carrots}  热汤 ${this.state.inventory.stew}\n废料 ${this.state.inventory.scrap} 工具${this.state.inventory.repairTools} ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
     this.objectiveText.setText(this.currentScene === 'kitchen' && this.state.tutorial.step === 'cook'
-      ? this.kitchenInstruction() : tutorialObjectives[this.state.tutorial.step]);
+      ? this.kitchenInstruction() : this.state.tutorial.completed ? currentObjective(this.state) : tutorialObjectives[this.state.tutorial.step]);
     this.sceneText.setText(sceneLabels[this.currentScene]);
     this.edgeHintText.setText(this.getEdgeHint());
 
@@ -871,8 +1048,10 @@ export class MainScene extends Phaser.Scene {
     this.dangerFill.width = 360 * danger;
     this.dangerFill.fillColor = danger > 0.7 ? 0xd64235 : danger > 0.35 ? 0xe3a044 : 0x66ae62;
     const night = hour >= 19 || hour < 6;
-    this.nightOverlay.setAlpha(night ? (this.state.runtime.bloodMoon ? 0.24 : 0.13) : 0);
-    this.nightOverlay.fillColor = this.state.runtime.bloodMoon ? 0xcf7997 : 0x8c9fcf;
+    const nightAmount = night ? 1 : hour >= 18 ? hour - 18 : hour < 7 ? 7 - hour : 0;
+    this.worldNights.forEach(image => image.setAlpha(nightAmount));
+    this.nightOverlay.setAlpha(nightAmount * (this.state.runtime.bloodMoon ? 0.22 : 0.12));
+    this.nightOverlay.fillColor = this.state.runtime.bloodMoon ? 0xd17891 : 0x8c9fcf;
     this.drawFocusRing();
   }
 
@@ -927,6 +1106,7 @@ export class MainScene extends Phaser.Scene {
     const panel = this.add.graphics().setDepth(5);
     panel.fillStyle(0x39776e, 0.12).fillRoundedRect(x - label.width / 2, y - label.height / 2 + 2, label.width, label.height, 8);
     panel.fillStyle(0xfaffff, 0.96).fillRoundedRect(x - label.width / 2, y - label.height / 2, label.width, label.height, 8);
+    this.hintPanels.push({ label, panel, width: label.width, height: label.height });
     return label;
   }
 
@@ -942,7 +1122,7 @@ export class MainScene extends Phaser.Scene {
     if (kitchen.pot === 'cooking') return '热汤正在煮，等进度满后点锅装盘';
     if (kitchen.bowlPieces > 0) return '把备菜碗里的碎菜拖到蓝色汤锅';
     if (kitchen.board === 'chopped') return '把切好的菜拖进左侧备菜碗';
-    if (kitchen.board === 'whole') return '在砧板上的胡萝卜来回划动切菜';
+    if (kitchen.board === 'whole') return this.state.progression.cutter ? '切菜机正在处理，请稍候' : '在砧板上的胡萝卜来回划动切菜';
     return '把左侧胡萝卜拖到右下方砧板';
   }
 
@@ -954,13 +1134,16 @@ export class MainScene extends Phaser.Scene {
     this.tweens.add({ targets: label, y: y - 45, alpha: 0, duration: 1000, ease: 'Cubic.Out', onComplete: () => label.destroy() });
   }
 
-  private shotEffect(target: ZombieState): void {
+  private shotEffect(target: ZombieState, turretLane?: number): void {
     const origin = sceneOrigins.defense;
     const beam = this.add.graphics().setDepth(70);
     beam.lineStyle(3, 0x9eefff, 0.9);
-    beam.lineBetween(origin.x + 123, origin.y + 345 + (this.state.defense.turretLane ?? 1) * 142,
+    beam.lineBetween(origin.x + (turretLane === undefined ? 195 : 123), origin.y + (turretLane === undefined ? 760 : 345 + turretLane * 142),
       origin.x + target.x, origin.y + 345 + target.lane * 142);
     beam.fillStyle(0xffffff).fillCircle(origin.x + target.x, origin.y + 345 + target.lane * 142, 7);
+    this.audio.play('shot');
+    const cannon = turretLane === undefined ? null : this.towerSprites.get(turretLane);
+    if (cannon) this.tweens.add({ targets: cannon, x: cannon.x - 3, duration: 60, yoyo: true });
     this.tweens.add({ targets: beam, alpha: 0, duration: 150, onComplete: () => beam.destroy() });
   }
 
@@ -973,6 +1156,17 @@ export class MainScene extends Phaser.Scene {
     g.lineStyle(3, 0x9ac9df).strokeEllipse(x + 300, y + 541, 75, 18);
     this.add.image(x + 205, y + 403, 'pot').setDisplaySize(132, 115);
     this.add.image(x + 233, y + 612, 'board').setDisplaySize(138, 115);
+    this.cutterMachine = this.add.graphics().setDepth(1).setVisible(false);
+    this.cutterMachine.fillStyle(0x7bbcae).fillRoundedRect(x + 172, y + 550, 122, 17, 6);
+    this.cutterMachine.fillStyle(0xdff6f0).fillRoundedRect(x + 176, y + 554, 8, 61, 3);
+    this.cutterMachine.fillRoundedRect(x + 283, y + 554, 8, 61, 3);
+    this.cutterMachine.fillStyle(0xffffff).fillCircle(x + 276, y + 558, 9);
+    this.cutterMachine.fillStyle(0x58b5a2).fillCircle(x + 276, y + 558, 4);
+    this.knife = this.add.graphics().setDepth(40).setVisible(false);
+    const blade = [new Phaser.Math.Vector2(-38, -4), new Phaser.Math.Vector2(12, -4), new Phaser.Math.Vector2(12, 9), new Phaser.Math.Vector2(-34, 9)];
+    this.knife.fillStyle(0xebf6fa).fillPoints(blade, true);
+    this.knife.lineStyle(1, 0x88aab8).strokePoints(blade, true);
+    this.knife.fillStyle(0x559d90).fillRoundedRect(12, -3, 24, 11, 4);
     this.add.image(x + 95, y + 624, 'prep-bowl').setDisplaySize(106, 88);
     this.add.image(x + 342, y + 322, 'cabinet').setDisplaySize(82, 151);
     for (let index = 0; index < 3; index += 1) {
@@ -1024,7 +1218,48 @@ export class MainScene extends Phaser.Scene {
     });
   }
 
+  private setPaused(paused: boolean): void {
+    this.pausedByPlayer = paused;
+    this.state.runtime.paused = paused || document.hidden;
+    this.lastWallTime = performance.now();
+    this.pauseShade.setVisible(paused); this.pauseMessage.setVisible(paused);
+    this.firingZombieId = null; this.weldingHeld = false; this.cutting = false;
+    if (paused) saveGame(this.state);
+  }
+
+  private beaconEffect(origin: { x: number; y: number }): void {
+    this.audio.play('beacon');
+    for (let i = 0; i < 3; i += 1) {
+      const ring = this.add.circle(origin.x + 195, origin.y + 175, 15, 0x9cf4ef, 0).setStrokeStyle(3, 0xb8ffff, 0.9).setDepth(50);
+      this.tweens.add({ targets: ring, scale: 7, alpha: 0, delay: i * 350, duration: 1500, onComplete: () => ring.destroy() });
+    }
+  }
+
+  private cutEffect(): void {
+    const origin = sceneOrigins.kitchen;
+    this.knife.setVisible(true).setPosition(origin.x + 233, origin.y + 590).setAngle(-15);
+    this.tweens.killTweensOf(this.knife);
+    this.tweens.add({ targets: this.knife, y: origin.y + 612, angle: 25, duration: 90, yoyo: true, onComplete: () => this.knife.setVisible(false) });
+    for (let i = 0; i < 2; i += 1) {
+      const slice = this.add.image(origin.x + 233, origin.y + 610, 'chopped').setDisplaySize(30, 30).setDepth(30);
+      this.tweens.add({ targets: slice, x: slice.x + (i ? 22 : -22), y: slice.y + 12, angle: i ? 25 : -25, alpha: 0, duration: 450, onComplete: () => slice.destroy() });
+    }
+  }
+
+  private sparkEffect(x: number, y: number): void {
+    const spark = this.add.graphics().setDepth(35);
+    spark.lineStyle(2, 0xffd37d);
+    for (let i = 0; i < 9; i += 1) {
+      const a = i * Math.PI * 2 / 9;
+      spark.lineBetween(x + Math.cos(a) * 7, y + Math.sin(a) * 7, x + Math.cos(a) * 30, y + Math.sin(a) * 30);
+    }
+    this.tweens.add({ targets: spark, alpha: 0, duration: 250, onComplete: () => spark.destroy() });
+  }
+
   private installDebugBridge(): void {
+    if (new URLSearchParams(location.search).get('qa') === '1') {
+      (window as typeof window & { __MORI_OBSERVE__?: () => GameState }).__MORI_OBSERVE__ = () => structuredClone(this.state);
+    }
     if (!import.meta.env.DEV) return;
     const target = window as typeof window & {
       __MORI_DEBUG__?: {
@@ -1045,7 +1280,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   private handleVisibility = (): void => {
-    this.state.runtime.paused = document.hidden;
+    this.state.runtime.paused = document.hidden || this.pausedByPlayer;
     this.lastWallTime = performance.now();
     if (document.hidden) saveGame(this.state);
   };
